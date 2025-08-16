@@ -238,6 +238,126 @@ class PensionServiceTest {
     }
 
     @Test
+    @DisplayName("strategy3: draw from pension first within allowance (0 tax), then use savings for the remainder")
+    void strategy3_timeline_and_rules() {
+        var timeline = service.strategy3(
+                INITIAL_SAVINGS,
+                INITIAL_PENSION,
+                ANNUAL_REQUIRED_NET
+        );
+
+        // Length: ages 61..99 inclusive
+        assertEquals(39, timeline.length);
+        // Log the full timeline for visibility (includes taxPaid)
+        log.info("age, savingsStart, pensionStart, savingsEnd, pensionEnd, taxPaid, totalWealthEnd");
+        for (Wealth w : timeline) {
+            log.info("{},{},{},{},{},{},{}",
+                    w.getAge(), w.getSavingsStart(), w.getPensionStart(), w.getSavingsEnd(), w.getPensionEnd(), w.getTaxPaid(), w.totalEnd());
+        }
+
+        // Age 61 snapshot: withdraw 16,760 from pension (0 tax), remainder 6,240 from savings
+        {
+            Wealth w = timeline[0];
+            int expectedAge = 61;
+            BigDecimal expectedPensionStart = new BigDecimal("425000.00");
+            BigDecimal expectedPensionEnd = new BigDecimal("424569.60");
+            BigDecimal expectedSavingsStart = new BigDecimal("74000.00");
+            BigDecimal expectedSavingsEnd = new BigDecimal("67760.00");
+            BigDecimal expectedTotalEnd = new BigDecimal("492329.60");
+            assertWealth(
+                    w,
+                    expectedAge,
+                    expectedPensionStart,
+                    expectedPensionEnd,
+                    expectedSavingsStart,
+                    expectedSavingsEnd,
+                    expectedTotalEnd
+            );
+            assertEquals(new BigDecimal("0.00"), w.getTaxPaid());
+        }
+    }
+
+    @Test
+    @DisplayName("strategy4: fill basic-rate band; surplus net added to savings")
+    void strategy4_timeline_and_rules() {
+        var timeline = service.strategy4(
+                INITIAL_SAVINGS,
+                INITIAL_PENSION,
+                ANNUAL_REQUIRED_NET
+        );
+
+        // Length: ages 61..99 inclusive
+        assertEquals(39, timeline.length);
+        // Log the full timeline for visibility (includes taxPaid)
+        log.info("age, savingsStart, pensionStart, savingsEnd, pensionEnd, taxPaid, totalWealthEnd");
+        for (Wealth w : timeline) {
+            log.info("{},{},{},{},{},{},{}",
+                    w.getAge(), w.getSavingsStart(), w.getPensionStart(), w.getSavingsEnd(), w.getPensionEnd(), w.getTaxPaid(), w.totalEnd());
+        }
+
+        // Age 61 snapshot: zero-tax pension up to allowance, then fill basic-rate band; surplus goes to savings
+        {
+            Wealth w = timeline[0];
+            int expectedAge = 61;
+            BigDecimal expectedPensionStart = new BigDecimal("425000.00");
+            BigDecimal expectedPensionEnd = new BigDecimal("372292.26");
+            BigDecimal expectedSavingsStart = new BigDecimal("74000.00");
+            BigDecimal expectedSavingsEnd = new BigDecimal("110486.67");
+            BigDecimal expectedTotalEnd = new BigDecimal("482778.93");
+            assertWealth(
+                    w,
+                    expectedAge,
+                    expectedPensionStart,
+                    expectedPensionEnd,
+                    expectedSavingsStart,
+                    expectedSavingsEnd,
+                    expectedTotalEnd
+            );
+            assertEquals(new BigDecimal("7540.00"), w.getTaxPaid());
+        }
+    }
+
+    @Test
+    @DisplayName("strategy5: phased UFPLS meets net need from pension first")
+    void strategy5_timeline_and_rules() {
+        var timeline = service.strategy5(
+                INITIAL_SAVINGS,
+                INITIAL_PENSION,
+                ANNUAL_REQUIRED_NET
+        );
+
+        // Length: ages 61..99 inclusive
+        assertEquals(39, timeline.length);
+        // Log the full timeline for visibility (includes taxPaid)
+        log.info("age, savingsStart, pensionStart, savingsEnd, pensionEnd, taxPaid, totalWealthEnd");
+        for (Wealth w : timeline) {
+            log.info("{},{},{},{},{},{},{}",
+                    w.getAge(), w.getSavingsStart(), w.getPensionStart(), w.getSavingsEnd(), w.getPensionEnd(), w.getTaxPaid(), w.totalEnd());
+        }
+
+        // Age 61 snapshot: UFPLS from pension to meet net need (tax on taxable portion above allowance); savings unchanged
+        {
+            Wealth w = timeline[0];
+            int expectedAge = 61;
+            BigDecimal expectedPensionStart = new BigDecimal("425000.00");
+            BigDecimal expectedPensionEnd = new BigDecimal("416934.77");
+            BigDecimal expectedSavingsStart = new BigDecimal("74000.00");
+            BigDecimal expectedSavingsEnd = new BigDecimal("74000.00");
+            BigDecimal expectedTotalEnd = new BigDecimal("490934.77");
+            assertWealth(
+                    w,
+                    expectedAge,
+                    expectedPensionStart,
+                    expectedPensionEnd,
+                    expectedSavingsStart,
+                    expectedSavingsEnd,
+                    expectedTotalEnd
+            );
+            assertEquals(new BigDecimal("1101.18"), w.getTaxPaid());
+        }
+    }
+
+    @Test
     @DisplayName("Zero years returns the starting balance")
     void projectBalance_zeroYears_returnsStartingBalance() {
         BigDecimal result = service.projectBalance(new BigDecimal("1000.00"), new BigDecimal("5"), 0);
