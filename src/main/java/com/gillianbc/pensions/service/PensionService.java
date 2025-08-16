@@ -82,6 +82,7 @@ public class PensionService {
             // Snapshot start-of-year balances
             BigDecimal pensionStart = pension.setScale(2, RoundingMode.HALF_UP);
             BigDecimal savingsStart = savings.setScale(2, RoundingMode.HALF_UP);
+            BigDecimal taxPaidThisYear = BigDecimal.ZERO;
 
             // State pension from age 67
             BigDecimal statePensionIncome = age >= 67 ? STATE_PENSION : BigDecimal.ZERO;
@@ -143,6 +144,10 @@ public class PensionService {
                         basicTaxPortion.multiply(ONE.subtract(BASIC_RATE), MATH_CONTEXT)
                 );
 
+                // Compute tax paid this year on pension withdrawals
+                BigDecimal taxForThisWithdrawal = basicTaxPortion.multiply(BASIC_RATE, MATH_CONTEXT).setScale(2, RoundingMode.HALF_UP);
+                taxPaidThisYear = taxPaidThisYear.add(taxForThisWithdrawal);
+
                 // Reduce need by the net amount achieved
                 need = need.subtract(netFromPension);
                 if (need.signum() < 0) {
@@ -159,7 +164,126 @@ public class PensionService {
             // End-of-year snapshot
             BigDecimal pensionEnd = pension.setScale(2, RoundingMode.HALF_UP);
             BigDecimal savingsEnd = savings.setScale(2, RoundingMode.HALF_UP);
-            timeline[idx] = new Wealth(age, pensionStart, pensionEnd, savingsStart, savingsEnd);
+            timeline[idx] = new Wealth(age, pensionStart, pensionEnd, savingsStart, savingsEnd, taxPaidThisYear.setScale(2, RoundingMode.HALF_UP));
+        }
+
+        return timeline;
+    }
+
+    /**
+     * Strategy 2: Spend savings first. When savings are depleted, draw from pension where
+     * 25% of each pension withdrawal is tax-free and the remaining 75% is taxed at 20%.
+     *
+     * State pension is received from age 67 and offsets the required net withdrawal.
+     * Pension grows at PENSION_GROWTH_RATE at the end of each age.
+     *
+     * @param savings         starting savings balance (>= 0)
+     * @param pension         starting pension balance (>= 0)
+     * @param requiredAmount  required net withdrawal per year (>= 0)
+     * @return array of Wealth objects, one per age from 61 through 99 inclusive
+     */
+    public Wealth[] strategy2(BigDecimal savings, BigDecimal pension, BigDecimal requiredAmount) {
+        Objects.requireNonNull(savings, "savings must not be null");
+        Objects.requireNonNull(pension, "pension must not be null");
+        Objects.requireNonNull(requiredAmount, "requiredAmount must not be null");
+        if (savings.signum() < 0) {
+            throw new IllegalArgumentException("savings must be >= 0");
+        }
+        if (pension.signum() < 0) {
+            throw new IllegalArgumentException("pension must be >= 0");
+        }
+        if (requiredAmount.signum() < 0) {
+            throw new IllegalArgumentException("requiredAmount must be >= 0");
+        }
+
+        final BigDecimal PERSONAL_ALLOWANCE = new BigDecimal("12570.00");
+        final BigDecimal STATE_PENSION = new BigDecimal("11973.00");
+        final BigDecimal BASIC_RATE = new BigDecimal("0.20");
+        final BigDecimal TAX_FREE_PORTION = new BigDecimal("0.25");
+        final BigDecimal TAXED_PORTION = new BigDecimal("0.75");
+        final BigDecimal NET_FACTOR = TAX_FREE_PORTION.add(TAXED_PORTION.multiply(BigDecimal.ONE.subtract(BASIC_RATE), MATH_CONTEXT)); // 0.25 + 0.75*0.8 = 0.85
+        final int startAge = 61;
+        final int endAge = 99;
+        final int len = endAge - startAge + 1;
+
+        Wealth[] timeline = new Wealth[len];
+
+        int age = startAge;
+        for (int idx = 0; idx < len; idx++, age++) {
+            // Snapshot start-of-year balances
+            BigDecimal pensionStart = pension.setScale(2, RoundingMode.HALF_UP);
+            BigDecimal savingsStart = savings.setScale(2, RoundingMode.HALF_UP);
+            BigDecimal taxPaidThisYear = BigDecimal.ZERO;
+
+            // State pension from age 67
+            BigDecimal statePensionIncome = age >= 67 ? STATE_PENSION : BigDecimal.ZERO;
+
+            // Net amount still required after state pension
+            BigDecimal need = requiredAmount.subtract(statePensionIncome);
+            if (need.signum() < 0) {
+                need = BigDecimal.ZERO;
+            }
+
+            // Use savings first
+            BigDecimal fromSavings = need.min(savings);
+            savings = savings.subtract(fromSavings);
+            need = need.subtract(fromSavings);
+
+            // If still needed, withdraw from pension, with 25% tax-free and 75% taxed at 20% after personal allowance
+            if (need.signum() > 0 && pension.signum() > 0) {
+                // Remaining personal allowance after state pension
+                BigDecimal allowanceLeft = PERSONAL_ALLOWANCE.subtract(statePensionIncome);
+                if (allowanceLeft.signum() < 0) {
+                    allowanceLeft = BigDecimal.ZERO;
+                }
+
+                // Compute gross required: try to keep taxable 75% within allowance; otherwise include tax impact
+                BigDecimal thresholdGrossWithinAllowance = allowanceLeft.divide(TAXED_PORTION, MATH_CONTEXT);
+                BigDecimal grossRequired;
+                if (need.compareTo(thresholdGrossWithinAllowance) <= 0) {
+                    // Entire taxable portion remains within allowance -> no tax, net equals gross
+                    grossRequired = need;
+                } else {
+                    // Part of taxable 75% exceeds allowance; tax applies at 20% on the excess
+                    // Net N = 0.25G + allowanceLeft + 0.8*(0.75G - allowanceLeft) = 0.85G + 0.2*allowanceLeft
+                    // => G = (N - 0.2*allowanceLeft) / 0.85
+                    BigDecimal adjustedNeed = need.subtract(allowanceLeft.multiply(BASIC_RATE, MATH_CONTEXT), MATH_CONTEXT);
+                    grossRequired = adjustedNeed.divide(NET_FACTOR, MATH_CONTEXT);
+                }
+
+                // Can't withdraw more than available pension
+                BigDecimal grossWithdraw = grossRequired.min(pension).setScale(2, RoundingMode.HALF_UP);
+
+                // Determine tax on the taxable portion above remaining allowance
+                BigDecimal taxablePortion = grossWithdraw.multiply(TAXED_PORTION, MATH_CONTEXT);
+                BigDecimal zeroTaxOnTaxable = taxablePortion.min(allowanceLeft);
+                BigDecimal taxedAboveAllowance = taxablePortion.subtract(zeroTaxOnTaxable);
+                if (taxedAboveAllowance.signum() < 0) {
+                    taxedAboveAllowance = BigDecimal.ZERO;
+                }
+                BigDecimal taxForThisWithdrawal = taxedAboveAllowance.multiply(BASIC_RATE, MATH_CONTEXT).setScale(2, RoundingMode.HALF_UP);
+                taxPaidThisYear = taxPaidThisYear.add(taxForThisWithdrawal);
+
+                // Net received is gross minus tax
+                BigDecimal netFromPension = grossWithdraw.subtract(taxForThisWithdrawal);
+
+                // Reduce need by the net amount achieved
+                need = need.subtract(netFromPension);
+                if (need.signum() < 0) {
+                    need = BigDecimal.ZERO;
+                }
+
+                // Deduct gross from pension
+                pension = pension.subtract(grossWithdraw);
+            }
+
+            // Apply end-of-year pension growth
+            pension = pension.multiply(BigDecimal.ONE.add(PENSION_GROWTH_RATE, MATH_CONTEXT), MATH_CONTEXT);
+
+            // End-of-year snapshot
+            BigDecimal pensionEnd = pension.setScale(2, RoundingMode.HALF_UP);
+            BigDecimal savingsEnd = savings.setScale(2, RoundingMode.HALF_UP);
+            timeline[idx] = new Wealth(age, pensionStart, pensionEnd, savingsStart, savingsEnd, taxPaidThisYear.setScale(2, RoundingMode.HALF_UP));
         }
 
         return timeline;

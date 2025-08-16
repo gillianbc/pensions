@@ -18,16 +18,18 @@ public class Wealth {
     @NonNull private final BigDecimal pensionEnd;
     @NonNull private final BigDecimal savingsStart;
     @NonNull private final BigDecimal savingsEnd;
+    @NonNull private final BigDecimal taxPaid;
 
     /**
      * Explicit validating constructor with clear parameter order:
-     * (age, pensionStart, pensionEnd, savingsStart, savingsEnd)
+     * (age, pensionStart, pensionEnd, savingsStart, savingsEnd, taxPaid)
      */
     public Wealth(int age,
                   BigDecimal pensionStart,
                   BigDecimal pensionEnd,
                   BigDecimal savingsStart,
-                  BigDecimal savingsEnd) {
+                  BigDecimal savingsEnd,
+                  BigDecimal taxPaid) {
         if (age < 61) {
             throw new IllegalArgumentException("age must be >= 61");
         }
@@ -36,26 +38,10 @@ public class Wealth {
         this.pensionEnd = Objects.requireNonNull(pensionEnd, "pensionEnd must not be null");
         this.savingsStart = Objects.requireNonNull(savingsStart, "savingsStart must not be null");
         this.savingsEnd = Objects.requireNonNull(savingsEnd, "savingsEnd must not be null");
+        this.taxPaid = Objects.requireNonNull(taxPaid, "taxPaid must not be null");
     }
 
-    /**
-     * Convenience constructor when only starting balances are known; end balances default to zero.
-     * Order: (age, savingsStart, pensionStart)
-     */
-    public Wealth(int age, BigDecimal savingsStart, BigDecimal pensionStart) {
-        this(age,
-             Objects.requireNonNull(pensionStart, "pensionStart must not be null"),
-             BigDecimal.ZERO,
-             Objects.requireNonNull(savingsStart, "savingsStart must not be null"),
-             BigDecimal.ZERO);
-    }
 
-    /**
-     * @return total starting wealth (pensionStart + savingsStart)
-     */
-    public BigDecimal totalStart() {
-        return pensionStart.add(savingsStart);
-    }
 
     /**
      * @return total ending wealth (pensionEnd + savingsEnd)
