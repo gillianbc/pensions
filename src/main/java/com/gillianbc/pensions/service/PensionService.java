@@ -15,6 +15,7 @@ public class PensionService {
     public static final int END_AGE = 99;
     private static final MathContext MATH_CONTEXT = new MathContext(12, RoundingMode.HALF_UP);
     // Annual pension growth rate (e.g., 0.04 = 4% per year), applied at end of each year
+    // The pension pot is modelled to grow at about 4% above inflation
     private static final BigDecimal PENSION_GROWTH_RATE = new BigDecimal("0.04");
     // Tax and income constants
     private static final BigDecimal PERSONAL_ALLOWANCE = new BigDecimal("12570.00");
@@ -23,26 +24,13 @@ public class PensionService {
     // Width of the basic-rate taxable band (amount of taxable income taxed at 20%)
     private static final BigDecimal BASIC_RATE_BAND = new BigDecimal("37700.00");
 
+
+
+
     /**
-     * Strategy 1: Use up savings first, then take a 25% tax free lump sum from pensions, then drawdown the remaining pension
-     * 
-     * If the required amount is greater than the savings, then the savings is reduced by the required amount.
-     * Otherwise, a lump sum of 25% of the pension is transferred to the savings account before the required amount is paid.
-     * The lump sum transfer from pension to savings can only be done once.
-     * If the savings are insufficient to cover the required amount, then any remaining savings are used first and the
-     * remainder of the required amount is paid out of the pension.
-     * The withdrawals from the pension are subject to tax at 20% if the total income from pension
-     * and state pension exceeds £12,570.00 i.e. the first 12570 is tax free, the remainder is taxed at 20%.
-     * The state pension will be paid at age 67 onwards and is £11,973 per year.
-     *
-     * @param savings
-     * @param pension
-     * @param requiredAmount
-     * @param years
-     */
-    /**
-     * Strategy 1: Use up savings first, then take a 25% tax free lump sum from pensions, then drawdown the remaining pension
-     *
+     * Strategy 1: Use up savings first, then take a one off 25% tax-free lump sum from pensions,
+     * then drawdown the remaining pension
+     * <p>
      * If the required amount is greater than the savings, then the savings is reduced by the required amount.
      * Otherwise, a lump sum of 25% of the pension is transferred to the savings account before the required amount is paid.
      * The lump sum transfer from pension to savings can only be done once.
@@ -51,11 +39,11 @@ public class PensionService {
      * The withdrawals from the pension are subject to tax at 20% if the total income from pension
      * and state pension exceeds £12,570.00 i.e. the first 12570 is tax free, the remainder is taxed at 20%.
      * The state pension will be paid at age 67 onwards and is £11,973 per age.
-     * The pension pot is expected to grow at about 4% above inflation  
+     * Pension grows at PENSION_GROWTH_RATE at the end of each year.
      *
-     * @param savings         starting savings balance (>= 0)
-     * @param pension         starting pension balance (>= 0)
-     * @param requiredAmount  required net withdrawal per year (>= 0)
+     * @param savings        starting savings balance (>= 0)
+     * @param pension        starting pension balance (>= 0)
+     * @param requiredAmount required net withdrawal per year (>= 0)
      * @return array of Wealth objects, one per age from 61 through 99 inclusive
      */
     public Wealth[] strategy1(BigDecimal savings, BigDecimal pension, BigDecimal requiredAmount) {
@@ -165,13 +153,13 @@ public class PensionService {
     /**
      * Strategy 2: Spend savings first. When savings are depleted, draw from pension where
      * 25% of each pension withdrawal is tax-free and the remaining 75% is taxed at 20%.
-     *
+     * <p>
      * State pension is received from age 67 and offsets the required net withdrawal.
-     * Pension grows at PENSION_GROWTH_RATE at the end of each age.
+     * Pension grows at PENSION_GROWTH_RATE at the end of each year.
      *
-     * @param savings         starting savings balance (>= 0)
-     * @param pension         starting pension balance (>= 0)
-     * @param requiredAmount  required net withdrawal per year (>= 0)
+     * @param savings        starting savings balance (>= 0)
+     * @param pension        starting pension balance (>= 0)
+     * @param requiredAmount required net withdrawal per year (>= 0)
      * @return array of Wealth objects, one per age from 61 through 99 inclusive
      */
     public Wealth[] strategy2(BigDecimal savings, BigDecimal pension, BigDecimal requiredAmount) {
@@ -267,17 +255,21 @@ public class PensionService {
         return timeline;
     }
 
-     /**
+    // TODO Add a strategy similar to strategy 2, but pay in £3600 from savings into pension.  Cannot do that age 75.
+
+    /**
      * Strategy 3: Draw from pension first, then from savings to meet the required net amount.
-     *
+     * <p>
      * Pension withdrawals are treated as 25% tax-free and 75% taxable at 20%, with the taxable portion
      * using up the annual personal allowance (12,570). Only the amount of the taxable portion above the
      * remaining allowance is taxed. From age 67, the state pension (11,973) both reduces the net need and
      * consumes part of the personal allowance for the year.
      *
-     * @param savings         starting savings balance (>= 0)
-     * @param pension         starting pension balance (>= 0)
-     * @param requiredAmount  required net withdrawal per year (>= 0)
+     * The pension grows at the PENSION_GROWTH_RATE at the end of each year.
+     *
+     * @param savings        starting savings balance (>= 0)
+     * @param pension        starting pension balance (>= 0)
+     * @param requiredAmount required net withdrawal per year (>= 0)
      * @return array of Wealth objects, one per age from 61 through 99 inclusive
      */
     public Wealth[] strategy3(BigDecimal savings, BigDecimal pension, BigDecimal requiredAmount) {
@@ -415,14 +407,21 @@ public class PensionService {
         return timeline;
     }
 
+    // TODO Add a strategy similar to strategy 3, but pay in £3600 from savings into pension.  Cannot do that age 75.
+
     /**
      * Strategy 4: Basic-Rate Band Filler.
-     *
+     * <p>
      * Each year:
-     *  - Withdraw from pension up to the zero-tax limit (25% tax-free / 75% taxable within remaining personal allowance).
-     *  - Then withdraw further to fully use the basic-rate band (20% on the taxable portion above allowance).
-     *  - Use any surplus net (beyond this year's spending need) to increase savings.
-     *  - If pension net is insufficient for spending, top up from savings.
+     * - Withdraw from pension up to the zero-tax limit (25% tax-free / 75% taxable within remaining personal allowance).
+     * - Then withdraw further to fully use the basic-rate band (20% on the taxable portion above allowance).
+     * - Use any surplus net (beyond this year's spending need) to increase savings.
+     * - If pension net is insufficient for spending, top up from savings.
+     * This strategy should be used if I wanted to draw out a big lump sum.  Anything above £50,271 is liable
+     * for tax at 40% rather than 20%, so if I needed 80,000, I would spread the withdrawals out over multiple
+     * financial years.
+     * Likewise, use this model to move money out of pensions as fast as possible without paying excessive tax
+     * e.g. to spend frivolously or give away
      */
     public Wealth[] strategy4(BigDecimal savings, BigDecimal pension, BigDecimal requiredAmount) {
         validateParams(savings, pension, requiredAmount);
@@ -538,10 +537,11 @@ public class PensionService {
 
     /**
      * Strategy 5: Phased UFPLS (25% tax-free within each withdrawal).
-     *
-     * Each year, meet the net need primarily from pension using UFPLS rules:
-     *  - 25% of each withdrawal is tax-free; 75% is taxable against remaining allowance then at 20%.
-     *  - Any shortfall is covered from savings.
+     * <p>
+     * Each year, meet the net need primarily from pension using UFPLS rules
+     * i.e. use pension before tapping into savings.
+     * - 25% of each withdrawal is tax-free; 75% is taxable against remaining allowance then at 20%.
+     * - Any shortfall is covered from savings.
      */
     public Wealth[] strategy5(BigDecimal savings, BigDecimal pension, BigDecimal requiredAmount) {
         validateParams(savings, pension, requiredAmount);
@@ -643,9 +643,9 @@ public class PensionService {
 
     /**
      * Projects a balance with compound growth applied once per age.
-     *
+     * <p>
      * For each age:
-     *   balance = balance * (1 + annualRatePercent/100)
+     * balance = balance * (1 + annualRatePercent/100)
      *
      * @param startingBalance   initial balance (>= 0)
      * @param annualRatePercent annual growth rate in percent (e.g., 5 for 5%)
