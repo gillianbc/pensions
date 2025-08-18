@@ -15,7 +15,7 @@ class PensionServiceTest {
 
     public static final String INITIAL_SAVINGS = "74000.00";
     public static final String INITIAL_PENSION = "425000.00";
-    public static final String AMOUNT_REQUIRED_NET = "32000.00";
+    public static final String AMOUNT_REQUIRED_NET = "23000.00";
 
     private final PensionService service = new PensionService();
 
@@ -237,7 +237,7 @@ class PensionServiceTest {
     }
 
     @Test
-    @DisplayName("strategy3: draw from pension first within allowance (0 tax). Then use savings for the remainder")
+    @DisplayName("strategy3: use max tax-free drawdown of £16760 in early years and use savings for the remainder of the required amount")
     void strategy3_timeline_and_rules() {
         var timeline = service.strategy3(
                 new BigDecimal(INITIAL_SAVINGS),
@@ -249,7 +249,46 @@ class PensionServiceTest {
         assertEquals(39, timeline.length);
 
         // Log the full timeline for visibility (includes taxPaid)
-        logTimeline("Strategy3: draw from pension first within allowance (0 tax). Then use savings for the remainder", timeline);
+        logTimeline("Strategy3: use max tax-free drawdown of £16760 in early years and use savings for the remainder of the required amount", timeline);
+
+        if (AMOUNT_REQUIRED_NET.equals("23000")) {
+            // Age 61 snapshot: withdraw 16,760 from pension (0 tax), remainder 6,240 from savings
+            {
+                Wealth w = timeline[0];
+                int expectedAge = 61;
+                BigDecimal expectedPensionStart = new BigDecimal(INITIAL_PENSION);
+                BigDecimal expectedPensionEnd = new BigDecimal("424569.60");
+                BigDecimal expectedSavingsStart = new BigDecimal(INITIAL_SAVINGS);
+                BigDecimal expectedSavingsEnd = new BigDecimal("67760.00");
+                BigDecimal expectedTotalEnd = new BigDecimal("492329.60");
+                assertWealth(
+                        w,
+                        expectedAge,
+                        expectedPensionStart,
+                        expectedPensionEnd,
+                        expectedSavingsStart,
+                        expectedSavingsEnd,
+                        expectedTotalEnd
+                );
+                assertEquals(new BigDecimal("0.00"), w.getTaxPaid());
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("strategy3A: use max tax-free drawdown of £16760 in early years and use savings for the remainder of the required amount.  Pay £3600 into pension")
+    void strategy3A_timeline_and_rules() {
+        var timeline = service.strategy3A(
+                new BigDecimal(INITIAL_SAVINGS),
+                new BigDecimal(INITIAL_PENSION),
+                new BigDecimal(AMOUNT_REQUIRED_NET)
+        );
+
+        // Length: ages 61..99 inclusive
+        assertEquals(39, timeline.length);
+
+        // Log the full timeline for visibility (includes taxPaid)
+        logTimeline("Strategy3A: use max tax-free drawdown of £16760 in early years and use savings for the remainder of the required amount.  Pay £3600 into pension", timeline);
 
         if (AMOUNT_REQUIRED_NET.equals("23000")) {
             // Age 61 snapshot: withdraw 16,760 from pension (0 tax), remainder 6,240 from savings
@@ -357,15 +396,16 @@ class PensionServiceTest {
         log.info("\n==== {} ====", strategyDescription);
         log.info("age, savingsStart, pensionStart, savingsEnd, pensionEnd, taxPaid, totalWealthEnd");
         for (Wealth w : timeline) {
-            if (w.getAge() == 61 || w.getAge() == 67 || w.getAge() == 80 || w.getAge() == 99)
-            log.info("{},{},{},{},{},{},{}",
-                    w.getAge(),
-                    display(w.getSavingsStart()),
-                    display(w.getPensionStart()),
-                    display(w.getSavingsEnd()),
-                    display(w.getPensionEnd()),
-                    display(w.getTaxPaid()),
-                    display(w.totalEnd()));
+//            if (w.getAge() == 61 || w.getAge() == 67 || w.getAge() == 80 || w.getAge() == 99)
+            if (1 == 1)
+                log.info("{},{},{},{},{},{},{}",
+                        w.getAge(),
+                        display(w.getSavingsStart()),
+                        display(w.getPensionStart()),
+                        display(w.getSavingsEnd()),
+                        display(w.getPensionEnd()),
+                        display(w.getTaxPaid()),
+                        display(w.totalEnd()));
         }
     }
 
