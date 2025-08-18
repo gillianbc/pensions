@@ -13,11 +13,57 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @Slf4j
 class PensionServiceTest {
 
-    public static final String INITIAL_SAVINGS = "74000.00";
-    public static final String INITIAL_PENSION = "425000.00";
-    public static final String AMOUNT_REQUIRED_NET = "23000.00";
+    public static final String INITIAL_SAVINGS = "94000.00";
+    public static final String INITIAL_PENSION = "411000.00";
+    public static final String AMOUNT_REQUIRED_NET = "35000.00";
 
     private final PensionService service = new PensionService();
+
+    @Test
+    @DisplayName("compares adding varying amounts of savings to pension then applying strategy 2 and 3")
+    void savings_and_pension_additions_and_strategy_comparisons() {
+
+        int transferred = 5000;
+
+        showAge80(transferred);
+
+        showAge80(transferred * 2);
+
+        showAge80(transferred * 3);
+
+        showAge80(transferred * 4);
+
+
+    }
+
+    private void showAge80(int transferred) {
+        PensionService.TransferResult transferResult = service.contributeFromSavingsToPension(
+                new BigDecimal(INITIAL_SAVINGS),
+                new BigDecimal(INITIAL_PENSION),
+                new BigDecimal(transferred),
+                60,
+                false);
+
+        var timeline = service.strategy2(
+                transferResult.savingsEnd,
+                transferResult.pensionEnd,
+                new BigDecimal(AMOUNT_REQUIRED_NET)
+        );
+
+        BigDecimal totalWealth80 = timeline[19].getSavingsEnd().add(timeline[19].getPensionEnd());
+        log.info("Total wealth strategy 2 age 80 after savings contribution of {} and spend of {} is: {}",
+                transferred, AMOUNT_REQUIRED_NET, totalWealth80);
+
+        timeline = service.strategy3(
+                transferResult.savingsEnd,
+                transferResult.pensionEnd,
+                new BigDecimal(AMOUNT_REQUIRED_NET)
+        );
+
+        totalWealth80 = timeline[19].getSavingsEnd().add(timeline[19].getPensionEnd());
+        log.info("Total wealth strategy 3 age 80 after savings contribution of {} and spend of {} is: {}",
+                transferred, AMOUNT_REQUIRED_NET, totalWealth80);
+    }
 
     @Test
     @DisplayName("strategy1: returns ages 61..99 and applies savings-first, one-time 25% lump sum, and taxation")
@@ -397,7 +443,7 @@ class PensionServiceTest {
         log.info("age, savingsStart, pensionStart, savingsEnd, pensionEnd, taxPaid, totalWealthEnd");
         for (Wealth w : timeline) {
 //            if (w.getAge() == 61 || w.getAge() == 67 || w.getAge() == 80 || w.getAge() == 99)
-            if (1 == 1)
+            if (1 == 1)  // show all ages for now
                 log.info("{},{},{},{},{},{},{}",
                         w.getAge(),
                         display(w.getSavingsStart()),

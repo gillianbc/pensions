@@ -30,6 +30,7 @@ public class PensionService {
 
 
 
+
     /**
      * Strategy 1: Use up savings first, then take a one off 25% tax-free lump sum from pensions,
      * then drawdown the remaining pension
@@ -801,6 +802,93 @@ public class PensionService {
             throw new IllegalArgumentException("requiredAmount must be >= 0");
         }
     }
+
+    /**
+     * Moves a net contribution from savings to pension, grossing up with 20% basic-rate tax relief
+     * (relief at source) when eligible.
+     *
+     * Examples:
+     *   - Age < 75: paying £2,880 from savings -> £3,600 added to pension (+£720 relief).
+     *   - Age >= 75: no tax relief, so £X from savings -> £X added to pension.
+     *
+     * Optionally enforces the £3,600 gross (£2,880 net) “no income” annual cap.
+     */
+    public TransferResult contributeFromSavingsToPension(
+            BigDecimal savings,
+            BigDecimal pension,
+            BigDecimal requestedNetFromSavings,
+            int age,
+            boolean applyNoIncomeGrossCap
+    ) {
+        Objects.requireNonNull(savings, "savings must not be null");
+        Objects.requireNonNull(pension, "pension must not be null");
+        Objects.requireNonNull(requestedNetFromSavings, "requestedNetFromSavings must not be null");
+        if (savings.signum() < 0 || pension.signum() < 0 || requestedNetFromSavings.signum() < 0) {
+            throw new IllegalArgumentException("balances and requested amount must be >= 0");
+        }
+
+        // Nothing to do if no savings or no request
+        if (savings.signum() == 0 || requestedNetFromSavings.signum() == 0) {
+            return new TransferResult(savings.setScale(2, RoundingMode.HALF_UP),
+                    pension.setScale(2, RoundingMode.HALF_UP),
+                    BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
+                    BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+        }
+
+        // Net we can actually take from savings
+        BigDecimal availableNet = requestedNetFromSavings.min(savings);
+
+        // If applying the £3,600 GROSS (i.e., £2,880 NET) cap,
+        // cap the NET contribution accordingly (only relevant where relief applies).
+        if (applyNoIncomeGrossCap && age < 75) {
+            BigDecimal noIncomeNetCap =
+                    NO_INCOME_CONTRIBUTION_LIMIT.multiply(BigDecimal.ONE.subtract(BASIC_RATE), MATH_CONTEXT); // 3600 * 0.8 = 2880
+            availableNet = availableNet.min(noIncomeNetCap);
+        }
+
+        // If age >= 75, no relief: £net -> £net
+        if (age >= 75) {
+            BigDecimal newSavings = savings.subtract(availableNet);
+            BigDecimal newPension = pension.add(availableNet);
+            return new TransferResult(newSavings.setScale(2, RoundingMode.HALF_UP),
+                    newPension.setScale(2, RoundingMode.HALF_UP),
+                    availableNet.setScale(2, RoundingMode.HALF_UP), // gross added equals net
+                    BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+        }
+
+        // Age < 75: relief at 20% of GROSS (i.e., gross-up the NET by dividing by 0.8)
+        BigDecimal gross = availableNet.divide(BigDecimal.ONE.subtract(BASIC_RATE), MATH_CONTEXT); // net / 0.8
+        BigDecimal relief = gross.subtract(availableNet, MATH_CONTEXT);
+
+        BigDecimal newSavings = savings.subtract(availableNet);
+        BigDecimal newPension = pension.add(gross);
+
+        return new TransferResult(newSavings.setScale(2, RoundingMode.HALF_UP),
+                newPension.setScale(2, RoundingMode.HALF_UP),
+                gross.setScale(2, RoundingMode.HALF_UP),
+                relief.setScale(2, RoundingMode.HALF_UP));
+    }
+
+    /** Result object for a savings->pension transfer with tax relief. */
+    public static final class TransferResult {
+        public final BigDecimal savingsEnd;
+        public final BigDecimal pensionEnd;
+        /** Total added to pension (gross). */
+        public final BigDecimal grossContributionAdded;
+        /** Portion of the gross that was tax relief. */
+        public final BigDecimal taxReliefAdded;
+
+        public TransferResult(BigDecimal savingsEnd,
+                              BigDecimal pensionEnd,
+                              BigDecimal grossContributionAdded,
+                              BigDecimal taxReliefAdded) {
+            this.savingsEnd = savingsEnd;
+            this.pensionEnd = pensionEnd;
+            this.grossContributionAdded = grossContributionAdded;
+            this.taxReliefAdded = taxReliefAdded;
+        }
+    }
+
 
     /**
      * Projects a balance with compound growth applied once per age.
