@@ -377,7 +377,7 @@ class PensionServiceTest {
         // Length: ages 61..99 inclusive
         assertEquals(39, timeline.length);
         // Log the full timeline for visibility (includes taxPaid)
-        logTimeline("Strategy5: phased UFPLS meets net need from pension first - (25% tax-free within each withdrawal)", timeline);
+        logTimeline("Strategy5: use pensions, don't touch savings - drawdown 25% tax-free, 75% taxed.", timeline);
 
         if (AMOUNT_REQUIRED_NET.equals("23000.00")) {
             // Age 61 snapshot: UFPLS from pension to meet net need (tax on taxable portion above allowance); savings unchanged
