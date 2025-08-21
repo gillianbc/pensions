@@ -13,9 +13,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @Slf4j
 class PensionServiceTest {
 
-    public static final String INITIAL_SAVINGS = "94000.00";
-    public static final String INITIAL_PENSION = "411000.00";
-    public static final String AMOUNT_REQUIRED_NET = "35000.00";
+    //  Asserts will only work as checks for 23000, initial savings 74K, initial pension 425K
+    public static final String INITIAL_SAVINGS = "74000.00";
+    public static final String INITIAL_PENSION = "425000.00";
+    public static final String AMOUNT_REQUIRED_NET = "23000.00";
 
     private final PensionService service = new PensionService();
 
@@ -80,8 +81,8 @@ class PensionServiceTest {
         // Log the full timeline for visibility
         logTimeline("Strategy1: applies savings-first - one-time 25% lump sum", timeline);
 
-        if (AMOUNT_REQUIRED_NET.equals("23000")) {
-            // I've only sorted out the assertions for 23000 - worth keeping though as a check
+        if (AMOUNT_REQUIRED_NET.equals("23000.00")) {
+            // I've only sorted out the assertions for 23000, initial savings 74K, initial pension 425K - worth keeping though as a check
             // Age 61 snapshot (index 0): spend from savings only
             {
                 Wealth w = timeline[0];
@@ -219,7 +220,7 @@ class PensionServiceTest {
         // Log the full timeline for visibility (includes taxPaid)
         logTimeline("Strategy2: uses savings first. Then use pension with 25% tax-free and 75% taxed at 20%", timeline);
 
-        if (AMOUNT_REQUIRED_NET.equals("23000")) {
+        if (AMOUNT_REQUIRED_NET.equals("23000.00")) {
             // Age 61 snapshot (same as strategy1: spend from savings only)
             {
                 Wealth w = timeline[0];
@@ -297,7 +298,7 @@ class PensionServiceTest {
         // Log the full timeline for visibility (includes taxPaid)
         logTimeline("Strategy3: use max tax-free drawdown of £16760 in early years and use savings for the remainder of the required amount", timeline);
 
-        if (AMOUNT_REQUIRED_NET.equals("23000")) {
+        if (AMOUNT_REQUIRED_NET.equals("23000.00")) {
             // Age 61 snapshot: withdraw 16,760 from pension (0 tax), remainder 6,240 from savings
             {
                 Wealth w = timeline[0];
@@ -322,7 +323,8 @@ class PensionServiceTest {
     }
 
     @Test
-    @DisplayName("strategy3A: use max tax-free drawdown of £16760 in early years and use savings for the remainder of the required amount.  Pay £3600 into pension")
+    @DisplayName("strategy3A: use max tax-free drawdown of £16760 in early years and use savings for the remainder of the required amount.  " +
+            "Pay £3600 into pension")
     void strategy3A_timeline_and_rules() {
         var timeline = service.strategy3A(
                 new BigDecimal(INITIAL_SAVINGS),
@@ -336,16 +338,16 @@ class PensionServiceTest {
         // Log the full timeline for visibility (includes taxPaid)
         logTimeline("Strategy3A: use max tax-free drawdown of £16760 in early years and use savings for the remainder of the required amount.  Pay £3600 into pension", timeline);
 
-        if (AMOUNT_REQUIRED_NET.equals("23000")) {
-            // Age 61 snapshot: withdraw 16,760 from pension (0 tax), remainder 6,240 from savings
+        if (AMOUNT_REQUIRED_NET.equals("23000.00")) {
+            // Age 61 snapshot:
             {
                 Wealth w = timeline[0];
                 int expectedAge = 61;
                 BigDecimal expectedPensionStart = new BigDecimal(INITIAL_PENSION);
-                BigDecimal expectedPensionEnd = new BigDecimal("424569.60");
+                BigDecimal expectedPensionEnd = new BigDecimal("428313.60");
                 BigDecimal expectedSavingsStart = new BigDecimal(INITIAL_SAVINGS);
-                BigDecimal expectedSavingsEnd = new BigDecimal("67760.00");
-                BigDecimal expectedTotalEnd = new BigDecimal("492329.60");
+                BigDecimal expectedSavingsEnd = new BigDecimal("64160.00");
+                BigDecimal expectedTotalEnd = new BigDecimal("492473.60");
                 assertWealth(
                         w,
                         expectedAge,
@@ -375,7 +377,7 @@ class PensionServiceTest {
         // Log the full timeline for visibility
         logTimeline("Strategy4: fill basic-rate band; surplus net added to savings", timeline);
 
-        if (AMOUNT_REQUIRED_NET.equals("23000")) {
+        if (AMOUNT_REQUIRED_NET.equals("23000.00")) {
             // Age 61 snapshot: zero-tax pension up to allowance, then fill basic-rate band; surplus goes to savings
             {
                 Wealth w = timeline[0];
@@ -413,7 +415,7 @@ class PensionServiceTest {
         // Log the full timeline for visibility (includes taxPaid)
         logTimeline("Strategy5: phased UFPLS meets net need from pension first - (25% tax-free within each withdrawal)", timeline);
 
-        if (AMOUNT_REQUIRED_NET.equals("23000")) {
+        if (AMOUNT_REQUIRED_NET.equals("23000.00")) {
             // Age 61 snapshot: UFPLS from pension to meet net need (tax on taxable portion above allowance); savings unchanged
             {
                 Wealth w = timeline[0];
