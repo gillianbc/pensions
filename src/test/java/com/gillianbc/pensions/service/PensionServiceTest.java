@@ -3,7 +3,10 @@ package com.gillianbc.pensions.service;
 import com.gillianbc.pensions.model.Wealth;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -11,6 +14,7 @@ import java.math.RoundingMode;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @Slf4j
+@TestMethodOrder(OrderAnnotation.class)
 class PensionServiceTest {
 
     //  Asserts will only work as checks for 23000, initial savings 74K, initial pension 425K
@@ -21,52 +25,7 @@ class PensionServiceTest {
     private final PensionService service = new PensionService();
 
     @Test
-    @DisplayName("compares adding varying amounts of savings to pension then applying strategy 2 and 3")
-    void savings_and_pension_additions_and_strategy_comparisons() {
-
-        int transferred = 5000;
-
-        showAge80(transferred);
-
-        showAge80(transferred * 2);
-
-        showAge80(transferred * 3);
-
-        showAge80(transferred * 4);
-
-
-    }
-
-    private void showAge80(int transferred) {
-        PensionService.TransferResult transferResult = service.contributeFromSavingsToPension(
-                new BigDecimal(INITIAL_SAVINGS),
-                new BigDecimal(INITIAL_PENSION),
-                new BigDecimal(transferred),
-                60,
-                false);
-
-        var timeline = service.strategy2(
-                transferResult.savingsEnd,
-                transferResult.pensionEnd,
-                new BigDecimal(AMOUNT_REQUIRED_NET)
-        );
-
-        BigDecimal totalWealth80 = timeline[19].getSavingsEnd().add(timeline[19].getPensionEnd());
-        log.info("Total wealth strategy 2 age 80 after savings contribution of {} and spend of {} is: {}",
-                transferred, AMOUNT_REQUIRED_NET, totalWealth80);
-
-        timeline = service.strategy3(
-                transferResult.savingsEnd,
-                transferResult.pensionEnd,
-                new BigDecimal(AMOUNT_REQUIRED_NET)
-        );
-
-        totalWealth80 = timeline[19].getSavingsEnd().add(timeline[19].getPensionEnd());
-        log.info("Total wealth strategy 3 age 80 after savings contribution of {} and spend of {} is: {}",
-                transferred, AMOUNT_REQUIRED_NET, totalWealth80);
-    }
-
-    @Test
+    @Order(10)
     @DisplayName("strategy1: returns ages 61..99 and applies savings-first, one-time 25% lump sum, and taxation")
     void strategy1_timeline_and_rules() {
         var timeline = service.strategy1(
@@ -206,6 +165,7 @@ class PensionServiceTest {
     }
 
     @Test
+    @Order(20)
     @DisplayName("strategy2: uses savings first, then pension with 25% tax-free and 75% taxed at 20%")
     void strategy2_timeline_and_rules() {
         var timeline = service.strategy2(
@@ -284,6 +244,7 @@ class PensionServiceTest {
     }
 
     @Test
+    @Order(30)
     @DisplayName("strategy3: use max tax-free drawdown of £16760 in early years and use savings for the remainder of the required amount")
     void strategy3_timeline_and_rules() {
         var timeline = service.strategy3(
@@ -323,6 +284,7 @@ class PensionServiceTest {
     }
 
     @Test
+    @Order(35)
     @DisplayName("strategy3A: use max tax-free drawdown of £16760 in early years and use savings for the remainder of the required amount.  " +
             "Pay £3600 into pension")
     void strategy3A_timeline_and_rules() {
@@ -363,6 +325,7 @@ class PensionServiceTest {
     }
 
     @Test
+    @Order(40)
     @DisplayName("strategy4: fill basic-rate band; surplus net added to savings")
     void strategy4_timeline_and_rules() {
         var timeline = service.strategy4(
@@ -402,6 +365,7 @@ class PensionServiceTest {
     }
 
     @Test
+    @Order(50)
     @DisplayName("strategy5: phased UFPLS meets net need from pension first")
     void strategy5_timeline_and_rules() {
         var timeline = service.strategy5(
@@ -437,6 +401,53 @@ class PensionServiceTest {
                 assertEquals(new BigDecimal("1101.18"), w.getTaxPaid());
             }
         }
+    }
+
+    @Test
+    @Order(100)
+    @DisplayName("compares adding varying amounts of savings to pension then applying strategy 2 and 3")
+    void savings_and_pension_additions_and_strategy_comparisons() {
+
+        int transferred = 5000;
+
+        showAge80(transferred);
+
+        showAge80(transferred * 2);
+
+        showAge80(transferred * 3);
+
+        showAge80(transferred * 4);
+
+
+    }
+
+    private void showAge80(int transferred) {
+        PensionService.TransferResult transferResult = service.contributeFromSavingsToPension(
+                new BigDecimal(INITIAL_SAVINGS),
+                new BigDecimal(INITIAL_PENSION),
+                new BigDecimal(transferred),
+                60,
+                false);
+
+        var timeline = service.strategy2(
+                transferResult.savingsEnd,
+                transferResult.pensionEnd,
+                new BigDecimal(AMOUNT_REQUIRED_NET)
+        );
+
+        BigDecimal totalWealth80 = timeline[19].getSavingsEnd().add(timeline[19].getPensionEnd());
+        log.info("Total wealth strategy 2 age 80 after savings contribution of {} and spend of {} is: {}",
+                transferred, AMOUNT_REQUIRED_NET, totalWealth80);
+
+        timeline = service.strategy3(
+                transferResult.savingsEnd,
+                transferResult.pensionEnd,
+                new BigDecimal(AMOUNT_REQUIRED_NET)
+        );
+
+        totalWealth80 = timeline[19].getSavingsEnd().add(timeline[19].getPensionEnd());
+        log.info("Total wealth strategy 3 age 80 after savings contribution of {} and spend of {} is: {}",
+                transferred, AMOUNT_REQUIRED_NET, totalWealth80);
     }
 
     private static void logTimeline(String strategyDescription, Wealth[] timeline) {
