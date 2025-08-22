@@ -115,6 +115,7 @@ public void generateComparisonReport(BigDecimal savings, BigDecimal pension, Big
         .append("        .strategy-5 { background-color: #00b894 !important; color: white; }\n")
         .append("        .currency { font-family: 'Courier New', monospace; }\n")
         .append("        .strategy-column { text-align: left; font-weight: bold; }\n")
+        .append("        .best { outline: 3px solid #ffffff; box-shadow: inset 0 0 0 2px #ffffff; font-weight: bold; }\n")
         .append("    </style>\n")
         .append("</head>\n")
         .append("<body>\n")
@@ -162,6 +163,18 @@ public void generateComparisonReport(BigDecimal savings, BigDecimal pension, Big
             .append("            </thead>\n")
             .append("            <tbody>\n");
 
+        // Compute the maximum total wealth per spending column for this age index.
+        BigDecimal[] maxForCol = new BigDecimal[requiredAmounts.length];
+        for (int j = 0; j < requiredAmounts.length; j++) {
+            BigDecimal m = s1ByAmt[j][idx].totalEnd();
+            m = m.max(s2ByAmt[j][idx].totalEnd());
+            m = m.max(s3ByAmt[j][idx].totalEnd());
+            m = m.max(s3aByAmt[j][idx].totalEnd());
+            m = m.max(s4ByAmt[j][idx].totalEnd());
+            m = m.max(s5ByAmt[j][idx].totalEnd());
+            maxForCol[j] = m;
+        }
+
         for (int s = 0; s < strategyRowTitles.length; s++) {
             html.append("                <tr class=\"").append(strategyClasses[s]).append("\">\n")
                 .append("                    <td class=\"strategy-column\">").append(strategyRowTitles[s]).append("</td>\n");
@@ -177,7 +190,9 @@ public void generateComparisonReport(BigDecimal savings, BigDecimal pension, Big
                     case 5 -> cell = s5ByAmt[j][idx].totalEnd();
                     default -> cell = BigDecimal.ZERO;
                 }
-                html.append("                    <td class=\"currency\">£").append(String.format("%,.2f", cell)).append("</td>\n");
+                boolean isBest = cell.compareTo(maxForCol[j]) == 0;
+                String extraClass = isBest ? " best" : "";
+                html.append("                    <td class=\"currency").append(extraClass).append("\">£").append(String.format("%,.2f", cell)).append("</td>\n");
             }
             html.append("                </tr>\n");
         }
