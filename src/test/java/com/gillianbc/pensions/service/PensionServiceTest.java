@@ -366,7 +366,7 @@ class PensionServiceTest {
 
     @Test
     @Order(50)
-    @DisplayName("strategy5: phased UFPLS meets net need from pension first")
+    @DisplayName("strategy5: withdraw required amount from pensions 25% tax free 75% taxed.  Don't touch savings.")
     void strategy5_timeline_and_rules() {
         var timeline = service.strategy5(
                 new BigDecimal(INITIAL_SAVINGS),
@@ -455,8 +455,8 @@ class PensionServiceTest {
         log.info("\n==== {} ====", strategyDescription);
         log.info("age, savingsStart, pensionStart, savingsEnd, pensionEnd, taxPaid, totalWealthEnd");
         for (Wealth w : timeline) {
-//            if (w.getAge() == 61 || w.getAge() == 67 || w.getAge() == 80 || w.getAge() == 99)
-            if (1 == 1)  // show all ages for now
+            if (w.getAge() == 61 || w.getAge() == 67 || w.getAge() == 80 || w.getAge() == 99)
+//            if (1 == 1)  // show all ages for now
                 log.info("{},{},{},{},{},{},{}",
                         w.getAge(),
                         display(w.getSavingsStart()),

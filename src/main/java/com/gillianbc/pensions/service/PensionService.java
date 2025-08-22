@@ -21,6 +21,7 @@ public class PensionService {
     private static final BigDecimal PENSION_GROWTH_RATE = new BigDecimal("0.04");
     // Tax and income constants
     private static final BigDecimal PERSONAL_ALLOWANCE = new BigDecimal("12570.00");
+    // Likely to rise to 12475 from 11973 next year age 61
     private static final BigDecimal STATE_PENSION = new BigDecimal("11973.00");
     private static final BigDecimal BASIC_RATE = new BigDecimal("0.20");
     // Width of the basic-rate taxable band (amount of taxable income taxed at 20%)
@@ -698,7 +699,7 @@ public class PensionService {
     }
 
     /**
-     * Strategy 5: Phased UFPLS (25% tax-free within each withdrawal).
+     * Strategy 5: Withdraw required amount from pensions 25% tax free 75% taxed.  Don't touch savings.
      * <p>
      * Each year, meet the net need primarily from pension using UFPLS rules
      * i.e. use pension before tapping into savings.
