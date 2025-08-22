@@ -35,6 +35,7 @@ class PensionServiceTest {
                         new BigDecimal("23000.00"),
                         new BigDecimal("27000.00"),
                         new BigDecimal("30000.00"),
+                        new BigDecimal("32000.00"),
                         new BigDecimal("35000.00")
                 },
                 new int[]{61, 67, 75, 80, 90, 99}

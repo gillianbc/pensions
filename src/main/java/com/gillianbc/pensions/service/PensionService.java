@@ -83,6 +83,9 @@ public void generateComparisonReport(BigDecimal savings, BigDecimal pension, Big
         s5ByAmt[j] = strategy5(savings, pension, req);
     }
 
+    // Prepare formatted constants for footer
+    String growthRatePercent = PENSION_GROWTH_RATE.multiply(new BigDecimal("100"), MATH_CONTEXT).setScale(2, RoundingMode.HALF_UP).toPlainString();
+
     // Build HTML
     StringBuilder html = new StringBuilder();
     html.append("<!DOCTYPE html>\n")
@@ -122,7 +125,7 @@ public void generateComparisonReport(BigDecimal savings, BigDecimal pension, Big
         .append("            <h2>Initial Parameters</h2>\n")
         .append("            <p><strong>Initial Savings:</strong> £").append(String.format("%,.2f", savings)).append("</p>\n")
         .append("            <p><strong>Initial Pension:</strong> £").append(String.format("%,.2f", pension)).append("</p>\n")
-        .append("            <p><strong>Required Annual Amounts:</strong> ");
+        .append("            <p><strong>Example Annual Spending Amounts:</strong> ");
 
     // Join required amounts for display without extra imports
     StringBuilder raList = new StringBuilder();
@@ -187,12 +190,20 @@ public void generateComparisonReport(BigDecimal savings, BigDecimal pension, Big
     html.append("        <div style=\"margin-top: 30px; padding: 15px; background-color: #d5dbdb; border-radius: 5px; font-size: 14px; color: #2c3e50;\">\n")
         .append("            <h3>Strategy Descriptions:</h3>\n")
         .append("            <ul>\n")
-        .append("                <li><strong>Strategy 1:</strong> Use savings first, then take one-time 25% tax-free lump sum, then drawdown remaining pension</li>\n")
-        .append("                <li><strong>Strategy 2:</strong> Use savings first, then draw from pension with 25% tax-free per withdrawal</li>\n")
-        .append("                <li><strong>Strategy 3:</strong> Maximize tax-free pension withdrawals first, use savings for remainder</li>\n")
+        .append("                <li><strong>Strategy 1:</strong> Use savings first. When savings gone, take big one-off 25% tax-free lump sum into savings.  When that's spent, drawdown remaining pension 25% tax free, 75% taxed</li>\n")
+        .append("                <li><strong>Strategy 2:</strong> Use savings first, then draw from pension with 25% tax-free, 75% taxed</li>\n")
+        .append("                <li><strong>Strategy 3:</strong> Drawdown from pension but keep below tax threshold, use savings for remainder of needs.  When savings run out, use pension 25% tax free, 75% taxed.</li>\n")
         .append("                <li><strong>Strategy 3A:</strong> Same as Strategy 3 but also contribute £3,600 annually from savings to pension</li>\n")
-        .append("                <li><strong>Strategy 4:</strong> Fill basic-rate tax band each year, surplus to savings</li>\n")
-        .append("                <li><strong>Strategy 5:</strong> Meet requirements primarily from pension, preserve savings</li>\n")
+        .append("                <li><strong>Strategy 4:</strong> Drawdown max possible without going into higher rate tax threshold. 25% tax-free, 75% taxed Anything not spent goes into savings</li>\n")
+        .append("                <li><strong>Strategy 5:</strong> Drawdown from pension, avoid touching savings</li>\n")
+        .append("            </ul>\n")
+        .append("            <h3>Assumptions</h3>\n")
+        .append("            <ul>\n")
+        .append("                <li><strong>Pension growth rate above inflation:</strong> ").append(growthRatePercent).append("%</li>\n")
+        .append("                <li><strong>Personal allowance:</strong> £").append(String.format("%,.2f", PERSONAL_ALLOWANCE)).append("</li>\n")
+        .append("                <li><strong>State pension (annual):</strong> £").append(String.format("%,.2f", STATE_PENSION)).append("</li>\n")
+        .append("                <li><strong>Basic-rate band width:</strong> £").append(String.format("%,.2f", BASIC_RATE_BAND)).append("</li>\n")
+        .append("                <li><strong>Savings interest:</strong>").append("None - but no inflation either").append("</li>\n")
         .append("            </ul>\n")
         .append("            <p><em>Generated on: ").append(java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))).append("</em></p>\n")
         .append("        </div>\n")
