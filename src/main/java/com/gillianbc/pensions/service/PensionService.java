@@ -29,8 +29,174 @@ public class PensionService {
     private static final BigDecimal NO_INCOME_CONTRIBUTION_LIMIT = new BigDecimal("3600.00");
 
 
+    /**
+     * Calls each of the strategy methods then formats the results into an HTML document
+     * Show the initial savings and pension pot then a table of the results.
+     * The columns of the table are the strategy name, the age, the total wealth at the end of that year 
+     * and the tax paid.
+     * The params of this method are (BigDecimal savings, BigDecimal pension, BigDecimal requiredAmount, int[] targetAges)
+     */
+public void generateComparisonReport(BigDecimal savings, BigDecimal pension, BigDecimal requiredAmount, int[] targetAges) {
+    validateParams(savings, pension, requiredAmount);
+    validateTargetAges(targetAges);
+    
+    // Execute all strategies
+    Wealth[] strategy1Results = strategy1(savings, pension, requiredAmount);
+    Wealth[] strategy2Results = strategy2(savings, pension, requiredAmount);
+    Wealth[] strategy3Results = strategy3(savings, pension, requiredAmount);
+    Wealth[] strategy3AResults = strategy3A(savings, pension, requiredAmount);
+    Wealth[] strategy4Results = strategy4(savings, pension, requiredAmount);
+    Wealth[] strategy5Results = strategy5(savings, pension, requiredAmount);
+    
+    // Generate HTML content
+    StringBuilder html = new StringBuilder();
+    html.append("<!DOCTYPE html>\n")
+        .append("<html lang=\"en\">\n")
+        .append("<head>\n")
+        .append("    <meta charset=\"UTF-8\">\n")
+        .append("    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n")
+        .append("    <title>Pension Strategy Comparison Report</title>\n")
+        .append("    <style>\n")
+        .append("        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }\n")
+        .append("        .container { max-width: 1200px; margin: 0 auto; background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }\n")
+        .append("        h1 { color: #2c3e50; text-align: center; margin-bottom: 30px; }\n")
+        .append("        .summary { background-color: #ecf0f1; padding: 15px; border-radius: 5px; margin-bottom: 30px; }\n")
+        .append("        .summary h2 { color: #34495e; margin-top: 0; }\n")
+        .append("        .summary p { margin: 8px 0; font-size: 16px; }\n")
+        .append("        table { width: 100%; border-collapse: collapse; margin-top: 20px; }\n")
+        .append("        th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }\n")
+        .append("        th { background-color: #3498db; color: white; font-weight: bold; }\n")
+        .append("        tr:nth-child(even) { background-color: #f2f2f2; }\n")
+        .append("        tr:hover { background-color: #e8f4f8; }\n")
+        .append("        .strategy-1 { background-color: #ffeaa7 !important; }\n")
+        .append("        .strategy-2 { background-color: #fab1a0 !important; }\n")
+        .append("        .strategy-3 { background-color: #fd79a8 !important; }\n")
+        .append("        .strategy-3a { background-color: #fdcb6e !important; }\n")
+        .append("        .strategy-4 { background-color: #6c5ce7 !important; color: white; }\n")
+        .append("        .strategy-5 { background-color: #00b894 !important; color: white; }\n")
+        .append("        .currency { font-family: 'Courier New', monospace; }\n")
+        .append("        .age-column { text-align: center; }\n")
+        .append("        .strategy-column { text-align: left; font-weight: bold; }\n")
+        .append("    </style>\n")
+        .append("</head>\n")
+        .append("<body>\n")
+        .append("    <div class=\"container\">\n")
+        .append("        <h1>Pension Strategy Comparison Report</h1>\n")
+        .append("        \n")
+        .append("        <div class=\"summary\">\n")
+        .append("            <h2>Initial Parameters</h2>\n")
+        .append("            <p><strong>Initial Savings:</strong> £").append(String.format("%,.2f", savings)).append("</p>\n")
+        .append("            <p><strong>Initial Pension:</strong> £").append(String.format("%,.2f", pension)).append("</p>\n")
+        .append("            <p><strong>Required Annual Amount:</strong> £").append(String.format("%,.2f", requiredAmount)).append("</p>\n")
+        .append("        </div>\n")
+        .append("        \n")
+        .append("        <table>\n")
+        .append("            <thead>\n")
+        .append("                <tr>\n")
+        .append("                    <th class=\"strategy-column\">Strategy</th>\n")
+        .append("                    <th class=\"age-column\">Age</th>\n")
+        .append("                    <th>Total Wealth (End of Year)</th>\n")
+        .append("                    <th>Tax Paid</th>\n")
+        .append("                </tr>\n")
+        .append("            </thead>\n")
+        .append("            <tbody>\n");
+    
+    // Add data rows for each strategy and age
+    String[] strategyNames = {
+        "Strategy 1: Savings First + 25% Lump Sum",
+        "Strategy 2: Savings First + 25% Tax-Free Per Withdrawal", 
+        "Strategy 3: Pension First (Tax-Free Max)",
+        "Strategy 3A: Pension First + £3,600 Contribution",
+        "Strategy 4: Basic-Rate Band Filler",
+        "Strategy 5: Pension First (Full Requirement)"
+    };
+    
+    String[] strategyClasses = {
+        "strategy-1", "strategy-2", "strategy-3", "strategy-3a", "strategy-4", "strategy-5"
+    };
+    
+    Wealth[][] allResults = {
+        strategy1Results, strategy2Results, strategy3Results, 
+        strategy3AResults, strategy4Results, strategy5Results
+    };
+    
+    for (int strategyIndex = 0; strategyIndex < allResults.length; strategyIndex++) {
+        Wealth[] results = allResults[strategyIndex];
+        String strategyName = strategyNames[strategyIndex];
+        String strategyClass = strategyClasses[strategyIndex];
+        
+        // Filter results to only include target ages
+        java.util.List<Wealth> filteredResults = new java.util.ArrayList<>();
+        for (Wealth wealth : results) {
+            for (int targetAge : targetAges) {
+                if (wealth.getAge() == targetAge) {
+                    filteredResults.add(wealth);
+                    break;
+                }
+            }
+        }
 
+        for (int resultIndex = 0; resultIndex < filteredResults.size(); resultIndex++) {
+            Wealth wealth = filteredResults.get(resultIndex);
+            html.append("                <tr class=\"").append(strategyClass).append("\">\n");
 
+            // Only show strategy name on first row for each strategy
+            if (resultIndex == 0) {
+                html.append("                    <td rowspan=\"").append(filteredResults.size()).append("\" class=\"strategy-column\">")
+                    .append(strategyName).append("</td>\n");
+            }
+            
+            html.append("                    <td class=\"age-column\">").append(wealth.getAge()).append("</td>\n")
+                .append("                    <td class=\"currency\">£").append(String.format("%,.2f", wealth.totalEnd())).append("</td>\n")
+                .append("                    <td class=\"currency\">£").append(String.format("%,.2f", wealth.getTaxPaid())).append("</td>\n")
+                .append("                </tr>\n");
+        }
+    }
+    
+    html.append("            </tbody>\n")
+        .append("        </table>\n")
+        .append("        \n")
+        .append("        <div style=\"margin-top: 30px; padding: 15px; background-color: #d5dbdb; border-radius: 5px; font-size: 14px; color: #2c3e50;\">\n")
+        .append("            <h3>Strategy Descriptions:</h3>\n")
+        .append("            <ul>\n")
+        .append("                <li><strong>Strategy 1:</strong> Use savings first, then take one-time 25% tax-free lump sum, then drawdown remaining pension</li>\n")
+        .append("                <li><strong>Strategy 2:</strong> Use savings first, then draw from pension with 25% tax-free per withdrawal</li>\n")
+        .append("                <li><strong>Strategy 3:</strong> Maximize tax-free pension withdrawals first, use savings for remainder</li>\n")
+        .append("                <li><strong>Strategy 3A:</strong> Same as Strategy 3 but also contribute £3,600 annually from savings to pension</li>\n")
+        .append("                <li><strong>Strategy 4:</strong> Fill basic-rate tax band each year, surplus to savings</li>\n")
+        .append("                <li><strong>Strategy 5:</strong> Meet requirements entirely from pension, preserve savings</li>\n")
+        .append("            </ul>\n")
+        .append("            <p><em>Generated on: ").append(java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))).append("</em></p>\n")
+        .append("        </div>\n")
+        .append("    </div>\n")
+        .append("</body>\n")
+        .append("</html>");
+    
+    // Save to file
+    saveHtmlToFile(html.toString());
+}
+
+private void saveHtmlToFile(String htmlContent) {
+    try {
+        // Create target/results directory if it doesn't exist
+        java.nio.file.Path resultsDir = java.nio.file.Paths.get("target", "results");
+        java.nio.file.Files.createDirectories(resultsDir);
+        
+        // Generate filename with timestamp
+        String timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
+        String filename = "pension-strategy-comparison-" + timestamp + ".html";
+        java.nio.file.Path filePath = resultsDir.resolve(filename);
+        
+        // Write HTML content to file
+        java.nio.file.Files.write(filePath, htmlContent.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        
+        log.info("Pension strategy comparison report saved to: {}", filePath.toAbsolutePath());
+        
+    } catch (java.io.IOException e) {
+        log.error("Failed to save HTML report to target/results directory", e);
+        throw new RuntimeException("Failed to save HTML report", e);
+    }
+}
 
     /**
      * Strategy 1: Use up savings first, then take a one off 25% tax-free lump sum from pensions,
@@ -801,6 +967,18 @@ public class PensionService {
         }
         if (requiredAmount.signum() < 0) {
             throw new IllegalArgumentException("requiredAmount must be >= 0");
+        }
+    }
+
+    private static void validateTargetAges(int[] targetAges) {
+        Objects.requireNonNull(targetAges, "targetAges must not be null");
+        if (targetAges.length == 0) {
+            throw new IllegalArgumentException("targetAges must not be empty");
+        }
+        for (int age : targetAges) {
+            if (age < START_AGE || age > END_AGE) {
+                throw new IllegalArgumentException("target age " + age + " must be between " + START_AGE + " and " + END_AGE + " inclusive");
+            }
         }
     }
 

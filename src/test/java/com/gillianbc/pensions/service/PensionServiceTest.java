@@ -25,6 +25,18 @@ class PensionServiceTest {
     private final PensionService service = new PensionService();
 
     @Test
+    @Order(1)
+    @DisplayName("Comparison html")
+    void compareComparisonHtml() {
+        service.generateComparisonReport(
+                new BigDecimal(INITIAL_SAVINGS),
+                new BigDecimal(INITIAL_PENSION),
+                new BigDecimal(AMOUNT_REQUIRED_NET),
+                new int[]{61, 67, 75, 80, 90, 99}
+        );
+    }
+
+    @Test
     @Order(10)
     @DisplayName("strategy1: returns ages 61..99 and applies savings-first, one-time 25% lump sum, and taxation")
     void strategy1_timeline_and_rules() {
