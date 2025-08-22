@@ -31,10 +31,11 @@ public class PensionService {
 
     /**
      * Calls each of the strategy methods then formats the results into an HTML document.
-     * Shows the initial savings and pension pot, then a comparison matrix of results.
-     * The table rows are Strategy 1, Strategy 2, etc., and the top header row contains the values from requiredAmounts.
-     * Each cell shows the total wealth at the end (using the latest target age provided, or age 99 if not provided)
-     * for that Strategy and required amount. Tax is not displayed in the results table.
+     * Shows the initial savings and pension pot, then for each requested age renders a compact table:
+     * - Rows: Strategy1, Strategy2, Strategy3, Strategy3A, Strategy4, Strategy5
+     * - Columns: the values from requiredAmounts
+     * Each cell shows the total wealth at the end of that specific age for the given strategy and required amount.
+     * If no target ages are provided, defaults to a single table at age 99. Tax is not displayed.
      * Params: (BigDecimal savings, BigDecimal pension, BigDecimal[] requiredAmounts, int[] targetAges)
      */
 public void generateComparisonReport(BigDecimal savings, BigDecimal pension, BigDecimal[] requiredAmounts, int[] targetAges) {
@@ -47,44 +48,39 @@ public void generateComparisonReport(BigDecimal savings, BigDecimal pension, Big
     for (BigDecimal amt : requiredAmounts) {
         validateParams(savings, pension, Objects.requireNonNull(amt, "requiredAmounts contains null"));
     }
-    // Determine the final 'end' age to report (use latest of provided targets; else 99)
-    int endAgeToReport = END_AGE;
+
+    // Determine which ages to show a table for
+    int[] agesToUse;
     if (targetAges != null && targetAges.length > 0) {
         validateTargetAges(targetAges);
-        int maxAge = targetAges[0];
-        for (int a : targetAges) {
-            if (a > maxAge) maxAge = a;
-        }
-        endAgeToReport = maxAge;
+        agesToUse = targetAges;
+    } else {
+        agesToUse = new int[]{END_AGE};
     }
 
     // Prepare strategy labels and CSS classes
     String[] strategyRowTitles = {
-        "Strategy 1", "Strategy 2", "Strategy 3", "Strategy 3A", "Strategy 4", "Strategy 5"
+        "Strategy1", "Strategy2", "Strategy3", "Strategy3A", "Strategy4", "Strategy5"
     };
     String[] strategyClasses = {
         "strategy-1", "strategy-2", "strategy-3", "strategy-3a", "strategy-4", "strategy-5"
     };
 
-    // Compute matrix of ending wealth: [strategy][requiredAmountIndex]
-    BigDecimal[][] endingWealthMatrix = new BigDecimal[strategyRowTitles.length][requiredAmounts.length];
+    // Precompute timelines per required amount to reuse across age tables
+    Wealth[][] s1ByAmt = new Wealth[requiredAmounts.length][];
+    Wealth[][] s2ByAmt = new Wealth[requiredAmounts.length][];
+    Wealth[][] s3ByAmt = new Wealth[requiredAmounts.length][];
+    Wealth[][] s3aByAmt = new Wealth[requiredAmounts.length][];
+    Wealth[][] s4ByAmt = new Wealth[requiredAmounts.length][];
+    Wealth[][] s5ByAmt = new Wealth[requiredAmounts.length][];
     for (int j = 0; j < requiredAmounts.length; j++) {
         BigDecimal req = requiredAmounts[j];
-        Wealth[] s1 = strategy1(savings, pension, req);
-        Wealth[] s2 = strategy2(savings, pension, req);
-        Wealth[] s3 = strategy3(savings, pension, req);
-        Wealth[] s3a = strategy3A(savings, pension, req);
-        Wealth[] s4 = strategy4(savings, pension, req);
-        Wealth[] s5 = strategy5(savings, pension, req);
-
-        int idx = Math.max(0, Math.min(END_AGE - START_AGE, endAgeToReport - START_AGE));
-
-        endingWealthMatrix[0][j] = s1[idx].totalEnd();
-        endingWealthMatrix[1][j] = s2[idx].totalEnd();
-        endingWealthMatrix[2][j] = s3[idx].totalEnd();
-        endingWealthMatrix[3][j] = s3a[idx].totalEnd();
-        endingWealthMatrix[4][j] = s4[idx].totalEnd();
-        endingWealthMatrix[5][j] = s5[idx].totalEnd();
+        s1ByAmt[j] = strategy1(savings, pension, req);
+        s2ByAmt[j] = strategy2(savings, pension, req);
+        s3ByAmt[j] = strategy3(savings, pension, req);
+        s3aByAmt[j] = strategy3A(savings, pension, req);
+        s4ByAmt[j] = strategy4(savings, pension, req);
+        s5ByAmt[j] = strategy5(savings, pension, req);
     }
 
     // Build HTML
@@ -102,7 +98,8 @@ public void generateComparisonReport(BigDecimal savings, BigDecimal pension, Big
         .append("        .summary { background-color: #ecf0f1; padding: 15px; border-radius: 5px; margin-bottom: 30px; }\n")
         .append("        .summary h2 { color: #34495e; margin-top: 0; }\n")
         .append("        .summary p { margin: 8px 0; font-size: 16px; }\n")
-        .append("        table { width: 100%; border-collapse: collapse; margin-top: 20px; }\n")
+        .append("        h2.age-title { color: #2c3e50; margin-top: 24px; }\n")
+        .append("        table { width: 100%; border-collapse: collapse; margin-top: 10px; }\n")
         .append("        th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }\n")
         .append("        th { background-color: #3498db; color: white; font-weight: bold; }\n")
         .append("        tr:nth-child(even) { background-color: #f2f2f2; }\n")
@@ -133,38 +130,61 @@ public void generateComparisonReport(BigDecimal savings, BigDecimal pension, Big
         if (i > 0) raList.append(", ");
         raList.append("£").append(String.format("%,.2f", requiredAmounts[i]));
     }
-    html.append(raList).append("</p>\n")
-        .append("            <p><strong>End Age Used:</strong> ").append(endAgeToReport).append("</p>\n")
-        .append("        </div>\n")
-        .append("        \n")
-        .append("        <table>\n")
-        .append("            <thead>\n")
-        .append("                <tr>\n")
-        .append("                    <th class=\"strategy-column\">Strategy</th>\n");
+    html.append(raList).append("</p>\n");
 
-    // Header cells for each required amount
-    for (BigDecimal amt : requiredAmounts) {
-        html.append("                    <th>£").append(String.format("%,.2f", amt)).append("</th>\n");
+    // Show target ages summary
+    StringBuilder agesList = new StringBuilder();
+    for (int i = 0; i < agesToUse.length; i++) {
+        if (i > 0) agesList.append(", ");
+        agesList.append(agesToUse[i]);
     }
-    html.append("                </tr>\n")
-        .append("            </thead>\n")
-        .append("            <tbody>\n");
+    html.append("            <p><strong>Target Ages:</strong> ").append(agesList).append("</p>\n")
+        .append("        </div>\n");
 
-    // Table body: one row per strategy
-    for (int s = 0; s < strategyRowTitles.length; s++) {
-        html.append("                <tr class=\"").append(strategyClasses[s]).append("\">\n")
-            .append("                    <td class=\"strategy-column\">").append(strategyRowTitles[s]).append("</td>\n");
-        for (int j = 0; j < requiredAmounts.length; j++) {
-            BigDecimal cell = endingWealthMatrix[s][j];
-            html.append("                    <td class=\"currency\">£").append(String.format("%,.2f", cell)).append("</td>\n");
+    // Render a separate table for each age
+    for (int aIdx = 0; aIdx < agesToUse.length; aIdx++) {
+        int age = agesToUse[aIdx];
+        int idx = Math.max(0, Math.min(END_AGE - START_AGE, age - START_AGE));
+
+        html.append("        <h2 class=\"age-title\">Results at Age ").append(age).append("</h2>\n")
+            .append("        <table>\n")
+            .append("            <thead>\n")
+            .append("                <tr>\n")
+            .append("                    <th class=\"strategy-column\">Strategy</th>\n");
+
+        for (BigDecimal amt : requiredAmounts) {
+            html.append("                    <th>£").append(String.format("%,.2f", amt)).append("</th>\n");
         }
-        html.append("                </tr>\n");
+        html.append("                </tr>\n")
+            .append("            </thead>\n")
+            .append("            <tbody>\n");
+
+        for (int s = 0; s < strategyRowTitles.length; s++) {
+            html.append("                <tr class=\"").append(strategyClasses[s]).append("\">\n")
+                .append("                    <td class=\"strategy-column\">").append(strategyRowTitles[s]).append("</td>\n");
+
+            for (int j = 0; j < requiredAmounts.length; j++) {
+                BigDecimal cell;
+                switch (s) {
+                    case 0 -> cell = s1ByAmt[j][idx].totalEnd();
+                    case 1 -> cell = s2ByAmt[j][idx].totalEnd();
+                    case 2 -> cell = s3ByAmt[j][idx].totalEnd();
+                    case 3 -> cell = s3aByAmt[j][idx].totalEnd();
+                    case 4 -> cell = s4ByAmt[j][idx].totalEnd();
+                    case 5 -> cell = s5ByAmt[j][idx].totalEnd();
+                    default -> cell = BigDecimal.ZERO;
+                }
+                html.append("                    <td class=\"currency\">£").append(String.format("%,.2f", cell)).append("</td>\n");
+            }
+            html.append("                </tr>\n");
+        }
+
+        html.append("            </tbody>\n")
+            .append("        </table>\n");
     }
 
-    html.append("            </tbody>\n")
-        .append("        </table>\n")
-        .append("        \n")
-        .append("        <div style=\"margin-top: 30px; padding: 15px; background-color: #d5dbdb; border-radius: 5px; font-size: 14px; color: #2c3e50;\">\n")
+    // Footer: strategy descriptions
+    html.append("        <div style=\"margin-top: 30px; padding: 15px; background-color: #d5dbdb; border-radius: 5px; font-size: 14px; color: #2c3e50;\">\n")
         .append("            <h3>Strategy Descriptions:</h3>\n")
         .append("            <ul>\n")
         .append("                <li><strong>Strategy 1:</strong> Use savings first, then take one-time 25% tax-free lump sum, then drawdown remaining pension</li>\n")
