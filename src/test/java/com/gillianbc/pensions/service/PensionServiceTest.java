@@ -10,6 +10,7 @@ import org.junit.jupiter.api.TestMethodOrder;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -22,7 +23,7 @@ class PensionServiceTest {
     public static final String INITIAL_SAVINGS = "74000.00";
     public static final String INITIAL_PENSION = "425000.00";
     public static final String AMOUNT_REQUIRED_NET = "23000.00";
-    public static final Map<Integer, BigDecimal> NO_ADHOC_WITHDRAWALS = null;
+    public static final Map<Integer, BigDecimal> NO_ADHOC_WITHDRAWALS = new HashMap<>();
     public static final int[] SAMPLE_AGES = {61, 67, 75, 80, 85, 90, 95, 99};
 
     private final PensionService service = new PensionService();
@@ -343,7 +344,7 @@ class PensionServiceTest {
     @Test
     @Order(35)
     @DisplayName("strategy3A: use max tax-free drawdown of £16760 in early years and use savings for the remainder of the required amount.  " +
-            "Pay £3600 into pension")
+            "Pay £3600 gross into pension from savings")
     void strategy3A_timeline_and_rules() {
         var timeline = service.strategy3A(
                 new BigDecimal(INITIAL_SAVINGS),
@@ -366,8 +367,8 @@ class PensionServiceTest {
                 BigDecimal expectedPensionStart = new BigDecimal(INITIAL_PENSION);
                 BigDecimal expectedPensionEnd = new BigDecimal("428313.60");
                 BigDecimal expectedSavingsStart = new BigDecimal(INITIAL_SAVINGS);
-                BigDecimal expectedSavingsEnd = new BigDecimal("64160.00");
-                BigDecimal expectedTotalEnd = new BigDecimal("492473.60");
+                BigDecimal expectedSavingsEnd = new BigDecimal("64880.00");
+                BigDecimal expectedTotalEnd = new BigDecimal("493193.60");
                 assertWealth(
                         w,
                         expectedAge,
@@ -486,8 +487,8 @@ class PensionServiceTest {
                 new BigDecimal(INITIAL_SAVINGS),
                 new BigDecimal(INITIAL_PENSION),
                 new BigDecimal(transferred),
-                60,
-                false);
+                60
+        );
 
         var timeline = service.strategy2(
                 transferResult.savingsEnd,

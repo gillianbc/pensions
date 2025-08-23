@@ -237,7 +237,7 @@ public void generateComparisonReport(BigDecimal savings, BigDecimal pension, Big
         .append("                <li><strong>Strategy 1:</strong> Use savings first. When savings gone, take big one-off 25% tax-free lump sum into savings.  When that's spent, drawdown remaining pension 25% tax free, 75% taxed</li>\n")
         .append("                <li><strong>Strategy 2:</strong> Use savings first, then draw from pension with 25% tax-free, 75% taxed</li>\n")
         .append("                <li><strong>Strategy 3:</strong> Drawdown from pension but keep below tax threshold, use savings for remainder of needs.  When savings run out, use pension 25% tax free, 75% taxed.</li>\n")
-        .append("                <li><strong>Strategy 3A:</strong> Same as Strategy 3 but also contribute £3,600 annually from savings to pension</li>\n")
+        .append("                <li><strong>Strategy 3A:</strong> Same as Strategy 3 but also contribute £3,600 (gross) annually from savings to pension</li>\n")
         .append("                <li><strong>Strategy 4:</strong> Drawdown max possible without going into higher rate tax threshold. 25% tax-free, 75% taxed Anything not spent goes into savings</li>\n")
         .append("                <li><strong>Strategy 5:</strong> Drawdown from pension, avoid touching savings</li>\n")
         .append("            </ul>\n")
@@ -735,11 +735,12 @@ private void saveHtmlToFile(String htmlContent) {
                 need = BigDecimal.ZERO;
             }
 
-            // Pay £3600 from savings into pension
+            // Pay £3600 gross from savings into pension
             if (savings.signum() > 0) {
-                BigDecimal fromSavingsToPension = NO_INCOME_CONTRIBUTION_LIMIT.min(savings);
+                var nettContribution = NO_INCOME_CONTRIBUTION_LIMIT.multiply(BigDecimal.ONE.subtract(BASIC_RATE), MATH_CONTEXT);
+                BigDecimal fromSavingsToPension = nettContribution.min(savings);
                 savings = savings.subtract(fromSavingsToPension);
-                pension = pension.add(fromSavingsToPension);
+                pension = pension.add(NO_INCOME_CONTRIBUTION_LIMIT);
             }
 
             // Draw from pension first
@@ -1122,8 +1123,7 @@ private void saveHtmlToFile(String htmlContent) {
             BigDecimal savings,
             BigDecimal pension,
             BigDecimal requestedNetFromSavings,
-            int age,
-            boolean applyNoIncomeGrossCap
+            int age
     ) {
         Objects.requireNonNull(savings, "savings must not be null");
         Objects.requireNonNull(pension, "pension must not be null");
@@ -1143,13 +1143,6 @@ private void saveHtmlToFile(String htmlContent) {
         // Net we can actually take from savings
         BigDecimal availableNet = requestedNetFromSavings.min(savings);
 
-        // If applying the £3,600 GROSS (i.e., £2,880 NET) cap,
-        // cap the NET contribution accordingly (only relevant where relief applies).
-        if (applyNoIncomeGrossCap && age < 75) {
-            BigDecimal noIncomeNetCap =
-                    NO_INCOME_CONTRIBUTION_LIMIT.multiply(BigDecimal.ONE.subtract(BASIC_RATE), MATH_CONTEXT); // 3600 * 0.8 = 2880
-            availableNet = availableNet.min(noIncomeNetCap);
-        }
 
         // If age >= 75, no relief: £net -> £net
         if (age >= 75) {
