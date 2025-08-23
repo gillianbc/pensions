@@ -10,6 +10,7 @@ import org.junit.jupiter.api.TestMethodOrder;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -21,6 +22,8 @@ class PensionServiceTest {
     public static final String INITIAL_SAVINGS = "74000.00";
     public static final String INITIAL_PENSION = "425000.00";
     public static final String AMOUNT_REQUIRED_NET = "23000.00";
+    public static final Map<Integer, BigDecimal> NO_ADHOC_WITHDRAWALS = null;
+    public static final int[] SAMPLE_AGES = {61, 67, 75, 80, 85, 90, 95, 99};
 
     private final PensionService service = new PensionService();
 
@@ -38,7 +41,40 @@ class PensionServiceTest {
                         new BigDecimal("32000.00"),
                         new BigDecimal("35000.00")
                 },
-                new int[]{61, 67, 75, 80, 90, 99}
+                SAMPLE_AGES
+        );
+    }
+
+    @Test
+    @Order(2)
+    @DisplayName("Comparison html with adhoc withdrawals at ages 63 (£10k), 67 (£12k), 72 (£15k)")
+    void compareComparisonHtml_withAdhocWithdrawals() {
+        Map<Integer, BigDecimal> adhoc = Map.of(
+                63, new BigDecimal("10000.00"),
+                67, new BigDecimal("12000.00"),
+                72, new BigDecimal("15000.00")
+        );
+
+        BigDecimal[] required = new BigDecimal[]{
+                new BigDecimal("23000.00"),
+                new BigDecimal("27000.00"),
+                new BigDecimal("30000.00"),
+                new BigDecimal("32000.00"),
+                new BigDecimal("35000.00")
+        };
+
+        service.generateComparisonReport(
+                new BigDecimal(INITIAL_SAVINGS),
+                new BigDecimal(INITIAL_PENSION),
+                new BigDecimal[]{
+                        new BigDecimal("23000.00"),
+                        new BigDecimal("27000.00"),
+                        new BigDecimal("30000.00"),
+                        new BigDecimal("32000.00"),
+                        new BigDecimal("35000.00")
+                },
+                SAMPLE_AGES,
+                adhoc
         );
     }
 
@@ -49,7 +85,8 @@ class PensionServiceTest {
         var timeline = service.strategy1(
                 new BigDecimal(INITIAL_SAVINGS),
                 new BigDecimal(INITIAL_PENSION),
-                new BigDecimal(AMOUNT_REQUIRED_NET)
+                new BigDecimal(AMOUNT_REQUIRED_NET),
+                NO_ADHOC_WITHDRAWALS
         );
 
         // Length: ages 61..99 inclusive
@@ -189,7 +226,8 @@ class PensionServiceTest {
         var timeline = service.strategy2(
                 new BigDecimal(INITIAL_SAVINGS),
                 new BigDecimal(INITIAL_PENSION),
-                new BigDecimal(AMOUNT_REQUIRED_NET)
+                new BigDecimal(AMOUNT_REQUIRED_NET),
+                NO_ADHOC_WITHDRAWALS
         );
 
         // Length: ages 61..99 inclusive
@@ -268,7 +306,8 @@ class PensionServiceTest {
         var timeline = service.strategy3(
                 new BigDecimal(INITIAL_SAVINGS),
                 new BigDecimal(INITIAL_PENSION),
-                new BigDecimal(AMOUNT_REQUIRED_NET)
+                new BigDecimal(AMOUNT_REQUIRED_NET),
+                NO_ADHOC_WITHDRAWALS
         );
 
         // Length: ages 61..99 inclusive
@@ -309,7 +348,8 @@ class PensionServiceTest {
         var timeline = service.strategy3A(
                 new BigDecimal(INITIAL_SAVINGS),
                 new BigDecimal(INITIAL_PENSION),
-                new BigDecimal(AMOUNT_REQUIRED_NET)
+                new BigDecimal(AMOUNT_REQUIRED_NET),
+                NO_ADHOC_WITHDRAWALS
         );
 
         // Length: ages 61..99 inclusive
@@ -349,7 +389,8 @@ class PensionServiceTest {
         var timeline = service.strategy4(
                 new BigDecimal(INITIAL_SAVINGS),
                 new BigDecimal(INITIAL_PENSION),
-                new BigDecimal(AMOUNT_REQUIRED_NET)
+                new BigDecimal(AMOUNT_REQUIRED_NET),
+                NO_ADHOC_WITHDRAWALS
         );
 
         // Length: ages 61..99 inclusive
@@ -389,7 +430,8 @@ class PensionServiceTest {
         var timeline = service.strategy5(
                 new BigDecimal(INITIAL_SAVINGS),
                 new BigDecimal(INITIAL_PENSION),
-                new BigDecimal(AMOUNT_REQUIRED_NET)
+                new BigDecimal(AMOUNT_REQUIRED_NET),
+                NO_ADHOC_WITHDRAWALS
         );
 
         // Length: ages 61..99 inclusive
@@ -450,7 +492,8 @@ class PensionServiceTest {
         var timeline = service.strategy2(
                 transferResult.savingsEnd,
                 transferResult.pensionEnd,
-                new BigDecimal(AMOUNT_REQUIRED_NET)
+                new BigDecimal(AMOUNT_REQUIRED_NET),
+                NO_ADHOC_WITHDRAWALS
         );
 
         BigDecimal totalWealth80 = timeline[19].getSavingsEnd().add(timeline[19].getPensionEnd());
@@ -460,7 +503,8 @@ class PensionServiceTest {
         timeline = service.strategy3(
                 transferResult.savingsEnd,
                 transferResult.pensionEnd,
-                new BigDecimal(AMOUNT_REQUIRED_NET)
+                new BigDecimal(AMOUNT_REQUIRED_NET),
+                NO_ADHOC_WITHDRAWALS
         );
 
         totalWealth80 = timeline[19].getSavingsEnd().add(timeline[19].getPensionEnd());

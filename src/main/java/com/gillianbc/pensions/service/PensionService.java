@@ -7,6 +7,8 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
+import java.util.Collections;
+import java.util.Map;
 import java.util.Objects;
 
 @Slf4j
@@ -39,8 +41,19 @@ public class PensionService {
      * Params: (BigDecimal savings, BigDecimal pension, BigDecimal[] requiredAmounts, int[] targetAges)
      */
 public void generateComparisonReport(BigDecimal savings, BigDecimal pension, BigDecimal[] requiredAmounts, int[] targetAges) {
+    // Delegate to the overloaded method with no ad hoc withdrawals
+    generateComparisonReport(savings, pension, requiredAmounts, targetAges, Collections.emptyMap());
+}
+
+/**
+ * Calls each of the strategy methods then formats the results into an HTML document.
+ * This overload accepts a per-age map of ad hoc extra withdrawals to be applied in each strategy.
+ */
+public void generateComparisonReport(BigDecimal savings, BigDecimal pension, BigDecimal[] requiredAmounts, int[] targetAges,
+                                     Map<Integer, BigDecimal> adhocWithdrawals) {
     // Basic validation
     Objects.requireNonNull(requiredAmounts, "requiredAmounts must not be null");
+    Objects.requireNonNull(adhocWithdrawals, "adhocWithdrawals must not be null");
     if (requiredAmounts.length == 0) {
         throw new IllegalArgumentException("requiredAmounts must not be empty");
     }
@@ -75,12 +88,12 @@ public void generateComparisonReport(BigDecimal savings, BigDecimal pension, Big
     Wealth[][] s5ByAmt = new Wealth[requiredAmounts.length][];
     for (int j = 0; j < requiredAmounts.length; j++) {
         BigDecimal req = requiredAmounts[j];
-        s1ByAmt[j] = strategy1(savings, pension, req);
-        s2ByAmt[j] = strategy2(savings, pension, req);
-        s3ByAmt[j] = strategy3(savings, pension, req);
-        s3aByAmt[j] = strategy3A(savings, pension, req);
-        s4ByAmt[j] = strategy4(savings, pension, req);
-        s5ByAmt[j] = strategy5(savings, pension, req);
+        s1ByAmt[j] = strategy1(savings, pension, req, adhocWithdrawals);
+        s2ByAmt[j] = strategy2(savings, pension, req, adhocWithdrawals);
+        s3ByAmt[j] = strategy3(savings, pension, req, adhocWithdrawals);
+        s3aByAmt[j] = strategy3A(savings, pension, req, adhocWithdrawals);
+        s4ByAmt[j] = strategy4(savings, pension, req, adhocWithdrawals);
+        s5ByAmt[j] = strategy5(savings, pension, req, adhocWithdrawals);
     }
 
     // Prepare formatted constants for footer
@@ -142,8 +155,24 @@ public void generateComparisonReport(BigDecimal savings, BigDecimal pension, Big
         if (i > 0) agesList.append(", ");
         agesList.append(agesToUse[i]);
     }
-    html.append("            <p><strong>Target Ages:</strong> ").append(agesList).append("</p>\n")
-        .append("        </div>\n");
+    html.append("            <p><strong>Target Ages:</strong> ").append(agesList).append("</p>\n");
+
+    // Show ad hoc withdrawals summary (at top)
+    if (adhocWithdrawals.isEmpty()) {
+        html.append("            <p><strong>Ad hoc withdrawals applied:</strong> None</p>\n");
+    } else {
+        StringBuilder adhocList = new StringBuilder();
+        java.util.List<Integer> adhocAges = new java.util.ArrayList<>(adhocWithdrawals.keySet());
+        java.util.Collections.sort(adhocAges);
+        for (int i = 0; i < adhocAges.size(); i++) {
+            Integer wAge = adhocAges.get(i);
+            BigDecimal wAmt = adhocWithdrawals.get(wAge);
+            if (i > 0) adhocList.append("; ");
+            adhocList.append("Age ").append(wAge).append(": £").append(String.format("%,.2f", wAmt));
+        }
+        html.append("            <p><strong>Ad hoc withdrawals applied:</strong> ").append(adhocList).append("</p>\n");
+    }
+    html.append("        </div>\n");
 
     // Render a separate table for each age
     for (int aIdx = 0; aIdx < agesToUse.length; aIdx++) {
@@ -271,8 +300,10 @@ private void saveHtmlToFile(String htmlContent) {
      * @param requiredAmount required net withdrawal per year (>= 0)
      * @return array of Wealth objects, one per age from 61 through 99 inclusive
      */
-    public Wealth[] strategy1(BigDecimal savings, BigDecimal pension, BigDecimal requiredAmount) {
+    public Wealth[] strategy1(BigDecimal savings, BigDecimal pension, BigDecimal requiredAmount,
+                              Map<Integer, BigDecimal> adhocWithdrawals) {
         validateParams(savings, pension, requiredAmount);
+        Objects.requireNonNull(adhocWithdrawals, "adhocWithdrawals must not be null");
 
         final BigDecimal ONE = BigDecimal.ONE;
 
@@ -292,8 +323,14 @@ private void saveHtmlToFile(String htmlContent) {
             // State pension from age 67
             BigDecimal statePensionIncome = age >= 67 ? STATE_PENSION : BigDecimal.ZERO;
 
-            // Net amount still required after state pension
-            BigDecimal need = requiredAmount.subtract(statePensionIncome);
+            // Ad hoc extra spending for this age
+            BigDecimal extraThisYear = adhocWithdrawals.getOrDefault(age, BigDecimal.ZERO);
+            if (extraThisYear.signum() < 0) {
+                throw new IllegalArgumentException("Ad hoc withdrawal for age " + age + " must be >= 0");
+            }
+
+            // Net amount still required after state pension (base required + extra)
+            BigDecimal need = requiredAmount.add(extraThisYear).subtract(statePensionIncome);
             if (need.signum() < 0) {
                 need = BigDecimal.ZERO;
             }
@@ -369,7 +406,7 @@ private void saveHtmlToFile(String htmlContent) {
             // End-of-year snapshot
             BigDecimal pensionEnd = pension.setScale(2, RoundingMode.HALF_UP);
             BigDecimal savingsEnd = savings.setScale(2, RoundingMode.HALF_UP);
-            timeline[idx] = new Wealth(age, pensionStart, pensionEnd, savingsStart, savingsEnd, taxPaidThisYear.setScale(2, RoundingMode.HALF_UP));
+            timeline[idx] = new Wealth(age, pensionStart, pensionEnd, savingsStart, savingsEnd, taxPaidThisYear.setScale(2, RoundingMode.HALF_UP), extraThisYear.setScale(2, RoundingMode.HALF_UP));
         }
 
         return timeline;
@@ -387,8 +424,9 @@ private void saveHtmlToFile(String htmlContent) {
      * @param requiredAmount required net withdrawal per year (>= 0)
      * @return array of Wealth objects, one per age from 61 through 99 inclusive
      */
-    public Wealth[] strategy2(BigDecimal savings, BigDecimal pension, BigDecimal requiredAmount) {
+    public Wealth[] strategy2(BigDecimal savings, BigDecimal pension, BigDecimal requiredAmount, Map<Integer, BigDecimal> adhocWithdrawals) {
         validateParams(savings, pension, requiredAmount);
+        Objects.requireNonNull(adhocWithdrawals, "adhocWithdrawals must not be null");
 
         final BigDecimal TAX_FREE_PORTION = new BigDecimal("0.25");
         final BigDecimal TAXED_PORTION = new BigDecimal("0.75");
@@ -409,8 +447,14 @@ private void saveHtmlToFile(String htmlContent) {
             // State pension from age 67
             BigDecimal statePensionIncome = age >= 67 ? STATE_PENSION : BigDecimal.ZERO;
 
+            // Ad hoc extra spending for this age
+            BigDecimal extraThisYear = adhocWithdrawals.getOrDefault(age, BigDecimal.ZERO);
+            if (extraThisYear.signum() < 0) {
+                throw new IllegalArgumentException("Ad hoc withdrawal for age " + age + " must be >= 0");
+            }
+
             // Net amount still required after state pension
-            BigDecimal need = requiredAmount.subtract(statePensionIncome);
+            BigDecimal need = requiredAmount.add(extraThisYear).subtract(statePensionIncome);
             if (need.signum() < 0) {
                 need = BigDecimal.ZERO;
             }
@@ -474,7 +518,7 @@ private void saveHtmlToFile(String htmlContent) {
             // End-of-year snapshot
             BigDecimal pensionEnd = pension.setScale(2, RoundingMode.HALF_UP);
             BigDecimal savingsEnd = savings.setScale(2, RoundingMode.HALF_UP);
-            timeline[idx] = new Wealth(age, pensionStart, pensionEnd, savingsStart, savingsEnd, taxPaidThisYear.setScale(2, RoundingMode.HALF_UP));
+            timeline[idx] = new Wealth(age, pensionStart, pensionEnd, savingsStart, savingsEnd, taxPaidThisYear.setScale(2, RoundingMode.HALF_UP), extraThisYear.setScale(2, RoundingMode.HALF_UP));
         }
 
         return timeline;
@@ -497,8 +541,9 @@ private void saveHtmlToFile(String htmlContent) {
      * @param requiredAmount required net withdrawal per year (>= 0)
      * @return array of Wealth objects, one per age from 61 through 99 inclusive
      */
-    public Wealth[] strategy3(BigDecimal savings, BigDecimal pension, BigDecimal requiredAmount) {
+    public Wealth[] strategy3(BigDecimal savings, BigDecimal pension, BigDecimal requiredAmount, Map<Integer, BigDecimal> adhocWithdrawals) {
         validateParams(savings, pension, requiredAmount);
+        Objects.requireNonNull(adhocWithdrawals, "adhocWithdrawals must not be null");
 
         final BigDecimal TAX_FREE_PORTION = new BigDecimal("0.25");
         final BigDecimal TAXED_PORTION = new BigDecimal("0.75");
@@ -520,8 +565,14 @@ private void saveHtmlToFile(String htmlContent) {
             // State pension from age 67
             BigDecimal statePensionIncome = age >= 67 ? STATE_PENSION : BigDecimal.ZERO;
 
+            // Ad hoc extra spending for this age
+            BigDecimal extraThisYear = adhocWithdrawals.getOrDefault(age, BigDecimal.ZERO);
+            if (extraThisYear.signum() < 0) {
+                throw new IllegalArgumentException("Ad hoc withdrawal for age " + age + " must be >= 0");
+            }
+
             // Net amount still required after state pension
-            BigDecimal need = requiredAmount.subtract(statePensionIncome);
+            BigDecimal need = requiredAmount.add(extraThisYear).subtract(statePensionIncome);
             if (need.signum() < 0) {
                 need = BigDecimal.ZERO;
             }
@@ -626,7 +677,7 @@ private void saveHtmlToFile(String htmlContent) {
             // End-of-year snapshot
             BigDecimal pensionEnd = pension.setScale(2, RoundingMode.HALF_UP);
             BigDecimal savingsEnd = savings.setScale(2, RoundingMode.HALF_UP);
-            timeline[idx] = new Wealth(age, pensionStart, pensionEnd, savingsStart, savingsEnd, taxPaidThisYear.setScale(2, RoundingMode.HALF_UP));
+            timeline[idx] = new Wealth(age, pensionStart, pensionEnd, savingsStart, savingsEnd, taxPaidThisYear.setScale(2, RoundingMode.HALF_UP), extraThisYear.setScale(2, RoundingMode.HALF_UP));
         }
 
         return timeline;
@@ -648,8 +699,9 @@ private void saveHtmlToFile(String htmlContent) {
      * @param requiredAmount required net withdrawal per year (>= 0)
      * @return array of Wealth objects, one per age from 61 through 99 inclusive
      */
-    public Wealth[] strategy3A(BigDecimal savings, BigDecimal pension, BigDecimal requiredAmount) {
+    public Wealth[] strategy3A(BigDecimal savings, BigDecimal pension, BigDecimal requiredAmount, Map<Integer, BigDecimal> adhocWithdrawals) {
         validateParams(savings, pension, requiredAmount);
+        Objects.requireNonNull(adhocWithdrawals, "adhocWithdrawals must not be null");
 
         final BigDecimal TAX_FREE_PORTION = new BigDecimal("0.25");
         final BigDecimal TAXED_PORTION = new BigDecimal("0.75");
@@ -671,8 +723,14 @@ private void saveHtmlToFile(String htmlContent) {
             // State pension from age 67
             BigDecimal statePensionIncome = age >= 67 ? STATE_PENSION : BigDecimal.ZERO;
 
+            // Ad hoc extra spending for this age
+            BigDecimal extraThisYear = adhocWithdrawals.getOrDefault(age, BigDecimal.ZERO);
+            if (extraThisYear.signum() < 0) {
+                throw new IllegalArgumentException("Ad hoc withdrawal for age " + age + " must be >= 0");
+            }
+
             // Net amount still required after state pension
-            BigDecimal need = requiredAmount.subtract(statePensionIncome);
+            BigDecimal need = requiredAmount.add(extraThisYear).subtract(statePensionIncome);
             if (need.signum() < 0) {
                 need = BigDecimal.ZERO;
             }
@@ -784,7 +842,7 @@ private void saveHtmlToFile(String htmlContent) {
             // End-of-year snapshot
             BigDecimal pensionEnd = pension.setScale(2, RoundingMode.HALF_UP);
             BigDecimal savingsEnd = savings.setScale(2, RoundingMode.HALF_UP);
-            timeline[idx] = new Wealth(age, pensionStart, pensionEnd, savingsStart, savingsEnd, taxPaidThisYear.setScale(2, RoundingMode.HALF_UP));
+            timeline[idx] = new Wealth(age, pensionStart, pensionEnd, savingsStart, savingsEnd, taxPaidThisYear.setScale(2, RoundingMode.HALF_UP), extraThisYear.setScale(2, RoundingMode.HALF_UP));
         }
 
         return timeline;
@@ -806,8 +864,9 @@ private void saveHtmlToFile(String htmlContent) {
      * Likewise, use this model to move money out of pensions as fast as possible without paying excessive tax
      * e.g. to spend frivolously or give away
      */
-    public Wealth[] strategy4(BigDecimal savings, BigDecimal pension, BigDecimal requiredAmount) {
+    public Wealth[] strategy4(BigDecimal savings, BigDecimal pension, BigDecimal requiredAmount, Map<Integer, BigDecimal> adhocWithdrawals) {
         validateParams(savings, pension, requiredAmount);
+        Objects.requireNonNull(adhocWithdrawals, "adhocWithdrawals must not be null");
 
         final BigDecimal TAX_FREE_PORTION = new BigDecimal("0.25");
         final BigDecimal TAXED_PORTION = new BigDecimal("0.75");
@@ -823,8 +882,14 @@ private void saveHtmlToFile(String htmlContent) {
 
             BigDecimal statePensionIncome = age >= 67 ? STATE_PENSION : BigDecimal.ZERO;
 
+            // Ad hoc extra spending for this age
+            BigDecimal extraThisYear = adhocWithdrawals.getOrDefault(age, BigDecimal.ZERO);
+            if (extraThisYear.signum() < 0) {
+                throw new IllegalArgumentException("Ad hoc withdrawal for age " + age + " must be >= 0");
+            }
+
             // Net spending need after state pension
-            BigDecimal need = requiredAmount.subtract(statePensionIncome);
+            BigDecimal need = requiredAmount.add(extraThisYear).subtract(statePensionIncome);
             if (need.signum() < 0) need = BigDecimal.ZERO;
 
             // Remaining personal allowance after state pension
@@ -912,7 +977,7 @@ private void saveHtmlToFile(String htmlContent) {
 
             BigDecimal pensionEnd = pension.setScale(2, RoundingMode.HALF_UP);
             BigDecimal savingsEnd = savings.setScale(2, RoundingMode.HALF_UP);
-            timeline[idx] = new Wealth(age, pensionStart, pensionEnd, savingsStart, savingsEnd, taxPaidThisYear.setScale(2, RoundingMode.HALF_UP));
+            timeline[idx] = new Wealth(age, pensionStart, pensionEnd, savingsStart, savingsEnd, taxPaidThisYear.setScale(2, RoundingMode.HALF_UP), extraThisYear.setScale(2, RoundingMode.HALF_UP));
         }
 
         return timeline;
@@ -926,8 +991,9 @@ private void saveHtmlToFile(String htmlContent) {
      * - 25% of each withdrawal is tax-free; 75% is taxable against remaining allowance then at 20%.
      * - Any shortfall is covered from savings.
      */
-    public Wealth[] strategy5(BigDecimal savings, BigDecimal pension, BigDecimal requiredAmount) {
+    public Wealth[] strategy5(BigDecimal savings, BigDecimal pension, BigDecimal requiredAmount, Map<Integer, BigDecimal> adhocWithdrawals) {
         validateParams(savings, pension, requiredAmount);
+        Objects.requireNonNull(adhocWithdrawals, "adhocWithdrawals must not be null");
 
         final BigDecimal TAX_FREE_PORTION = new BigDecimal("0.25");
         final BigDecimal TAXED_PORTION = new BigDecimal("0.75");
@@ -944,8 +1010,14 @@ private void saveHtmlToFile(String htmlContent) {
 
             BigDecimal statePensionIncome = age >= 67 ? STATE_PENSION : BigDecimal.ZERO;
 
+            // Ad hoc extra spending for this age
+            BigDecimal extraThisYear = adhocWithdrawals.getOrDefault(age, BigDecimal.ZERO);
+            if (extraThisYear.signum() < 0) {
+                throw new IllegalArgumentException("Ad hoc withdrawal for age " + age + " must be >= 0");
+            }
+
             // Net amount still required after state pension
-            BigDecimal need = requiredAmount.subtract(statePensionIncome);
+            BigDecimal need = requiredAmount.add(extraThisYear).subtract(statePensionIncome);
             if (need.signum() < 0) need = BigDecimal.ZERO;
 
             // Withdraw from pension using UFPLS
@@ -972,7 +1044,7 @@ private void saveHtmlToFile(String htmlContent) {
                 if (taxedAboveAllowance.signum() < 0) taxedAboveAllowance = BigDecimal.ZERO;
 
                 BigDecimal tax = taxedAboveAllowance.multiply(BASIC_RATE, MATH_CONTEXT).setScale(2, RoundingMode.HALF_UP);
-                taxPaidThisYear = taxPaidThisYear.add(tax);
+                taxPaidThisYear = tax.add(taxPaidThisYear);
 
                 BigDecimal netFromPension = grossWithdraw.subtract(tax);
 
@@ -1003,7 +1075,7 @@ private void saveHtmlToFile(String htmlContent) {
 
             BigDecimal pensionEnd = pension.setScale(2, RoundingMode.HALF_UP);
             BigDecimal savingsEnd = savings.setScale(2, RoundingMode.HALF_UP);
-            timeline[idx] = new Wealth(age, pensionStart, pensionEnd, savingsStart, savingsEnd, taxPaidThisYear.setScale(2, RoundingMode.HALF_UP));
+            timeline[idx] = new Wealth(age, pensionStart, pensionEnd, savingsStart, savingsEnd, taxPaidThisYear.setScale(2, RoundingMode.HALF_UP), extraThisYear.setScale(2, RoundingMode.HALF_UP));
         }
 
         return timeline;

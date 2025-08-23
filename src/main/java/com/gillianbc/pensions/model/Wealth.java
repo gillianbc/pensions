@@ -19,17 +19,22 @@ public class Wealth {
     @NonNull private final BigDecimal savingsStart;
     @NonNull private final BigDecimal savingsEnd;
     @NonNull private final BigDecimal taxPaid;
+    /**
+     * Additional ad hoc spending applied at this age (e.g., car, bathroom).
+     */
+    @NonNull private final BigDecimal extraSpending;
 
     /**
      * Explicit validating constructor with clear parameter order:
-     * (age, pensionStart, pensionEnd, savingsStart, savingsEnd, taxPaid)
+     * (age, pensionStart, pensionEnd, savingsStart, savingsEnd, taxPaid, extraSpending)
      */
     public Wealth(int age,
                   BigDecimal pensionStart,
                   BigDecimal pensionEnd,
                   BigDecimal savingsStart,
                   BigDecimal savingsEnd,
-                  BigDecimal taxPaid) {
+                  BigDecimal taxPaid,
+                  BigDecimal extraSpending) {
         if (age < 61) {
             throw new IllegalArgumentException("age must be >= 61");
         }
@@ -39,6 +44,7 @@ public class Wealth {
         this.savingsStart = Objects.requireNonNull(savingsStart, "savingsStart must not be null");
         this.savingsEnd = Objects.requireNonNull(savingsEnd, "savingsEnd must not be null");
         this.taxPaid = Objects.requireNonNull(taxPaid, "taxPaid must not be null");
+        this.extraSpending = Objects.requireNonNull(extraSpending, "extraSpending must not be null");
     }
 
 
