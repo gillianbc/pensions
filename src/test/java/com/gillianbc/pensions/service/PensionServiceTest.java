@@ -90,17 +90,17 @@ class PensionServiceTest {
                 NO_ADHOC_WITHDRAWALS
         );
 
-        // Length: ages 61..99 inclusive
-        assertEquals(39, timeline.length);
+        // Length: ages START_AGE..END_AGE inclusive
+        assertEquals(PensionService.END_AGE - PensionService.START_AGE + 1, timeline.length);
 
         // Log the full timeline for visibility
         logTimeline("Strategy1: applies savings-first - one-time 25% lump sum", timeline);
 
         if (AMOUNT_REQUIRED_NET.equals("23000.00")) {
             // I've only sorted out the assertions for 23000, initial savings 74K, initial pension 425K - worth keeping though as a check
-            // Age 61 snapshot (index 0): spend from savings only
+            // Age 61 snapshot (index depends on START_AGE)
             {
-                Wealth w = timeline[0];
+                Wealth w = timeline[61 - PensionService.START_AGE];
                 int expectedAge = 61;
                 BigDecimal expectedPensionStart = new BigDecimal(INITIAL_PENSION);
                 BigDecimal expectedPensionEnd = new BigDecimal("442000.00");
@@ -118,9 +118,9 @@ class PensionServiceTest {
                 );
             }
 
-            // Age 65 snapshot (index 4): savings insufficient -> lump sum already taken in age 64
+            // Age 65 snapshot: savings insufficient -> lump sum already taken in age 64
             {
-                Wealth w = timeline[4];
+                Wealth w = timeline[65 - PensionService.START_AGE];
                 int expectedAge = 65;
                 BigDecimal expectedPensionStart = new BigDecimal("372892.42");
                 BigDecimal expectedPensionEnd = new BigDecimal("387808.11");
@@ -138,9 +138,9 @@ class PensionServiceTest {
                 );
             }
 
-            // Age 67 snapshot (index 6): state pension reduces net need to 11,027; no pension draw required yet
+            // Age 67 snapshot: state pension reduces net need to 11,027; no pension draw required yet
             {
-                Wealth w = timeline[6];
+                Wealth w = timeline[67 - PensionService.START_AGE];
                 int expectedAge = 67;
                 BigDecimal expectedPensionStart = new BigDecimal("403320.44");
                 BigDecimal expectedPensionEnd = new BigDecimal("419453.25");
@@ -158,9 +158,9 @@ class PensionServiceTest {
                 );
             }
 
-            // Age 72 snapshot (index 11): savings depleted; withdraw from pension with tax computation
+            // Age 72 snapshot: savings depleted; withdraw from pension with tax computation
             {
-                Wealth w = timeline[11];
+                Wealth w = timeline[72 - PensionService.START_AGE];
                 int expectedAge = 72;
                 BigDecimal expectedPensionStart = new BigDecimal("490700.98");
                 BigDecimal expectedPensionEnd = new BigDecimal("496645.48");
@@ -178,9 +178,9 @@ class PensionServiceTest {
                 );
             }
 
-            // Age 80 snapshot (index 19)
+            // Age 80 snapshot
             {
-                Wealth w = timeline[19];
+                Wealth w = timeline[80 - PensionService.START_AGE];
                 int expectedAge = 80;
                 BigDecimal expectedPensionStart = new BigDecimal("541554.70");
                 BigDecimal expectedPensionEnd = new BigDecimal("549037.01");
@@ -198,9 +198,9 @@ class PensionServiceTest {
                 );
             }
 
-            // Age 99 snapshot (index 38)
+            // Age 99 snapshot
             {
-                Wealth w = timeline[38];
+                Wealth w = timeline[99 - PensionService.START_AGE];
                 int expectedAge = 99;
                 BigDecimal expectedPensionStart = new BigDecimal("748599.36");
                 BigDecimal expectedPensionEnd = new BigDecimal("764363.46");
@@ -231,8 +231,8 @@ class PensionServiceTest {
                 NO_ADHOC_WITHDRAWALS
         );
 
-        // Length: ages 61..99 inclusive
-        assertEquals(39, timeline.length);
+        // Length: ages START_AGE..END_AGE inclusive
+        assertEquals(PensionService.END_AGE - PensionService.START_AGE + 1, timeline.length);
 
         // Log the full timeline for visibility (includes taxPaid)
         logTimeline("Strategy2: uses savings first. Then use pension with 25% tax-free and 75% taxed at 20%", timeline);
@@ -240,7 +240,7 @@ class PensionServiceTest {
         if (AMOUNT_REQUIRED_NET.equals("23000.00")) {
             // Age 61 snapshot (same as strategy1: spend from savings only)
             {
-                Wealth w = timeline[0];
+                Wealth w = timeline[61 - PensionService.START_AGE];
                 assertWealth(
                         w,
                         61,
@@ -255,7 +255,7 @@ class PensionServiceTest {
 
             // Age 62 snapshot: still spending savings only; pension compounds
             {
-                Wealth w = timeline[1];
+                Wealth w = timeline[62 - PensionService.START_AGE];
                 assertWealth(
                         w,
                         62,
@@ -270,7 +270,7 @@ class PensionServiceTest {
 
             // Age 63 snapshot: last year before savings deplete
             {
-                Wealth w = timeline[2];
+                Wealth w = timeline[63 - PensionService.START_AGE];
                 assertWealth(
                         w,
                         63,
@@ -285,7 +285,7 @@ class PensionServiceTest {
 
             // Age 64 snapshot: savings deplete and pension withdrawal occurs with tax
             {
-                Wealth w = timeline[3];
+                Wealth w = timeline[64 - PensionService.START_AGE];
                 assertWealth(
                         w,
                         64,
@@ -311,8 +311,8 @@ class PensionServiceTest {
                 NO_ADHOC_WITHDRAWALS
         );
 
-        // Length: ages 61..99 inclusive
-        assertEquals(39, timeline.length);
+        // Length: ages START_AGE..END_AGE inclusive
+        assertEquals(PensionService.END_AGE - PensionService.START_AGE + 1, timeline.length);
 
         // Log the full timeline for visibility (includes taxPaid)
         logTimeline("Strategy3: use max tax-free drawdown of £16760 in early years and use savings for the remainder of the required amount", timeline);
@@ -320,7 +320,7 @@ class PensionServiceTest {
         if (AMOUNT_REQUIRED_NET.equals("23000.00")) {
             // Age 61 snapshot: withdraw 16,760 from pension (0 tax), remainder 6,240 from savings
             {
-                Wealth w = timeline[0];
+                Wealth w = timeline[61 - PensionService.START_AGE];
                 int expectedAge = 61;
                 BigDecimal expectedPensionStart = new BigDecimal(INITIAL_PENSION);
                 BigDecimal expectedPensionEnd = new BigDecimal("424569.60");
@@ -353,8 +353,8 @@ class PensionServiceTest {
                 NO_ADHOC_WITHDRAWALS
         );
 
-        // Length: ages 61..99 inclusive
-        assertEquals(39, timeline.length);
+        // Length: ages START_AGE..END_AGE inclusive
+        assertEquals(PensionService.END_AGE - PensionService.START_AGE + 1, timeline.length);
 
         // Log the full timeline for visibility (includes taxPaid)
         logTimeline("Strategy3A: use max tax-free drawdown of £16760 in early years and use savings for the remainder of the required amount.  Pay £3600 into pension", timeline);
@@ -362,7 +362,7 @@ class PensionServiceTest {
         if (AMOUNT_REQUIRED_NET.equals("23000.00")) {
             // Age 61 snapshot:
             {
-                Wealth w = timeline[0];
+                Wealth w = timeline[61 - PensionService.START_AGE];
                 int expectedAge = 61;
                 BigDecimal expectedPensionStart = new BigDecimal(INITIAL_PENSION);
                 BigDecimal expectedPensionEnd = new BigDecimal("428313.60");
@@ -394,8 +394,8 @@ class PensionServiceTest {
                 NO_ADHOC_WITHDRAWALS
         );
 
-        // Length: ages 61..99 inclusive
-        assertEquals(39, timeline.length);
+        // Length: ages START_AGE..END_AGE inclusive
+        assertEquals(PensionService.END_AGE - PensionService.START_AGE + 1, timeline.length);
 
         // Log the full timeline for visibility
         logTimeline("Strategy4: fill basic-rate band; surplus net added to savings", timeline);
@@ -403,7 +403,7 @@ class PensionServiceTest {
         if (AMOUNT_REQUIRED_NET.equals("23000.00")) {
             // Age 61 snapshot: zero-tax pension up to allowance, then fill basic-rate band; surplus goes to savings
             {
-                Wealth w = timeline[0];
+                Wealth w = timeline[61 - PensionService.START_AGE];
                 int expectedAge = 61;
                 BigDecimal expectedPensionStart = new BigDecimal(INITIAL_PENSION);
                 BigDecimal expectedPensionEnd = new BigDecimal("372292.26");
@@ -435,8 +435,8 @@ class PensionServiceTest {
                 NO_ADHOC_WITHDRAWALS
         );
 
-        // Length: ages 61..99 inclusive
-        assertEquals(39, timeline.length);
+        // Length: ages START_AGE..END_AGE inclusive
+        assertEquals(PensionService.END_AGE - PensionService.START_AGE + 1, timeline.length);
         // Log the full timeline for visibility (includes taxPaid)
         logTimeline("Strategy5: use pensions, don't touch savings - drawdown 25% tax-free, 75% taxed.", timeline);
 

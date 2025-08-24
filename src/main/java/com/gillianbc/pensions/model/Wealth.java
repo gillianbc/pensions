@@ -35,8 +35,8 @@ public class Wealth {
                   BigDecimal savingsEnd,
                   BigDecimal taxPaid,
                   BigDecimal extraSpending) {
-        if (age < 61) {
-            throw new IllegalArgumentException("age must be >= 61");
+        if (age < 55) {
+            throw new IllegalArgumentException("age must be >= 55");
         }
         this.age = age;
         this.pensionStart = Objects.requireNonNull(pensionStart, "pensionStart must not be null");

@@ -431,13 +431,11 @@ private void saveHtmlToFile(String htmlContent) {
         final BigDecimal TAX_FREE_PORTION = new BigDecimal("0.25");
         final BigDecimal TAXED_PORTION = new BigDecimal("0.75");
         final BigDecimal NET_FACTOR = TAX_FREE_PORTION.add(TAXED_PORTION.multiply(BigDecimal.ONE.subtract(BASIC_RATE), MATH_CONTEXT)); // 0.25 + 0.75*0.8 = 0.85
-        final int startAge = 61;
-        final int endAge = 99;
-        final int len = endAge - startAge + 1;
+        final int len = END_AGE - START_AGE + 1;
 
         Wealth[] timeline = new Wealth[len];
 
-        int age = startAge;
+        int age = START_AGE;
         for (int idx = 0; idx < len; idx++, age++) {
             // Snapshot start-of-year balances
             BigDecimal pensionStart = pension.setScale(2, RoundingMode.HALF_UP);
@@ -549,13 +547,11 @@ private void saveHtmlToFile(String htmlContent) {
         final BigDecimal TAXED_PORTION = new BigDecimal("0.75");
         final BigDecimal NET_FACTOR = TAX_FREE_PORTION.add(TAXED_PORTION.multiply(BigDecimal.ONE.subtract(BASIC_RATE), MATH_CONTEXT)); // 0.85
 
-        final int startAge = 61;
-        final int endAge = 99;
-        final int len = endAge - startAge + 1;
+        final int len = END_AGE - START_AGE + 1;
 
         Wealth[] timeline = new Wealth[len];
 
-        int age = startAge;
+        int age = START_AGE;
         for (int idx = 0; idx < len; idx++, age++) {
             // Snapshot start-of-year balances
             BigDecimal pensionStart = pension.setScale(2, RoundingMode.HALF_UP);
@@ -707,13 +703,11 @@ private void saveHtmlToFile(String htmlContent) {
         final BigDecimal TAXED_PORTION = new BigDecimal("0.75");
         final BigDecimal NET_FACTOR = TAX_FREE_PORTION.add(TAXED_PORTION.multiply(BigDecimal.ONE.subtract(BASIC_RATE), MATH_CONTEXT)); // 0.85
 
-        final int startAge = 61;
-        final int endAge = 99;
-        final int len = endAge - startAge + 1;
+        final int len = END_AGE - START_AGE + 1;
 
         Wealth[] timeline = new Wealth[len];
 
-        int age = startAge;
+        int age = START_AGE;
         for (int idx = 0; idx < len; idx++, age++) {
             // Snapshot start-of-year balances
             BigDecimal pensionStart = pension.setScale(2, RoundingMode.HALF_UP);
