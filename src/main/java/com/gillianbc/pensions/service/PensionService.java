@@ -236,9 +236,9 @@ public void generateComparisonReport(BigDecimal savings, BigDecimal pension, Big
         .append("            <ul>\n")
         .append("                <li><strong>Strategy 1:</strong> Use savings first. When savings gone, take big one-off 25% tax-free lump sum into savings.  When that's spent, drawdown remaining pension 25% tax free, 75% taxed</li>\n")
         .append("                <li><strong>Strategy 2:</strong> Use savings first, then draw from pension with 25% tax-free, 75% taxed</li>\n")
-        .append("                <li><strong>Strategy 3:</strong> Drawdown from pension but keep below tax threshold, use savings for remainder of needs.  When savings run out, use pension 25% tax free, 75% taxed.</li>\n")
-        .append("                <li><strong>Strategy 3A:</strong> Same as Strategy 3 but also contribute £3,600 (gross) annually from savings to pension</li>\n")
-        .append("                <li><strong>Strategy 4:</strong> Drawdown max possible without going into higher rate tax threshold. 25% tax-free, 75% taxed Anything not spent goes into savings</li>\n")
+        .append("                <li><strong>Strategy 3:</strong> Drawdown from pension but keep below tax threshold, use savings for remainder of needs. e.g. £16760 from pension, no tax to pay, plus £6240 from savings = 23K.  When savings run out, use pension 25% tax free, 75% taxed.</li>\n")
+        .append("                <li><strong>Strategy 3A:</strong> Same as Strategy 3 but also contribute £3,600 (gross) annually from savings to pension.  £720 rebate until age 75</li>\n")
+        .append("                <li><strong>Strategy 4:</strong> Drawdown max possible without going into higher rate tax threshold. e.g. 25% tax-free, 75% taxed Anything not spent goes into savings</li>\n")
         .append("                <li><strong>Strategy 5:</strong> Drawdown from pension, avoid touching savings</li>\n")
         .append("            </ul>\n")
         .append("            <h3>Assumptions</h3>\n")
@@ -681,7 +681,7 @@ private void saveHtmlToFile(String htmlContent) {
 
     /**
      * Strategy 3A: Use max tax-free drawdown of £16760 in early years and use savings for the remainder of the required amount.
-     * Also pay £3600 into pension from savings per year
+     * Also pay £3600 into pension from savings per year (2880 nett, 720 rebate)
      * <p>
      * Pension withdrawals are treated as 25% tax-free and 75% taxable at 20%, with the taxable portion
      * using up the annual personal allowance (12,570). Only the amount of the taxable portion above the
@@ -730,11 +730,20 @@ private void saveHtmlToFile(String htmlContent) {
             }
 
             // Pay £3600 gross from savings into pension
-            if (savings.signum() > 0) {
-                var nettContribution = NO_INCOME_CONTRIBUTION_LIMIT.multiply(BigDecimal.ONE.subtract(BASIC_RATE), MATH_CONTEXT);
-                BigDecimal fromSavingsToPension = nettContribution.min(savings);
-                savings = savings.subtract(fromSavingsToPension);
-                pension = pension.add(NO_INCOME_CONTRIBUTION_LIMIT);
+            if (age < 75 && savings.signum() > 0) {
+                // No-income cap: £3,600 gross = £2,880 net
+                BigDecimal netCap = NO_INCOME_CONTRIBUTION_LIMIT.multiply(BigDecimal.ONE.subtract(BASIC_RATE), MATH_CONTEXT); // 2880
+                BigDecimal netFromSavings = savings.min(netCap);
+
+                if (netFromSavings.signum() > 0) {
+                    // Relief at source (20% of gross): gross = net / 0.8
+                    BigDecimal gross = netFromSavings.divide(BigDecimal.ONE.subtract(BASIC_RATE), MATH_CONTEXT); // / 0.8
+
+                    // Move money
+                    savings = savings.subtract(netFromSavings);
+                    pension = pension.add(gross);
+
+                }
             }
 
             // Draw from pension first
@@ -843,21 +852,22 @@ private void saveHtmlToFile(String htmlContent) {
         return timeline;
     }
 
-    // TODO Add a strategy similar to strategy 3, but pay in £3600 from savings into pension.  Cannot do that age 75.
 
     /**
-     * Strategy 4: Basic-Rate Band Filler.
-     * <p>
+     * Strategy 4: Basic-Rate Band Filler (avoid higher-rate tax).
+     *
      * Each year:
-     * - Withdraw from pension up to the zero-tax limit (25% tax-free / 75% taxable within remaining personal allowance).
-     * - Then withdraw further to fully use the basic-rate band (20% on the taxable portion above allowance).
-     * - Use any surplus net (beyond this year's spending need) to increase savings.
-     * - If pension net is insufficient for spending, top up from savings.
-     * This strategy should be used if I wanted to draw out a big lump sum.  Anything above £50,271 is liable
-     * for tax at 40% rather than 20%, so if I needed 80,000, I would spread the withdrawals out over multiple
-     * financial years.
-     * Likewise, use this model to move money out of pensions as fast as possible without paying excessive tax
-     * e.g. to spend frivolously or give away
+     *  - UFPLS (Uncrystallised Funds Pension Lump Sum) withdrawals: 25% tax-free, 75% taxable.
+     *  - Step A: Withdraw up to the remaining PA (Personal Allowance - currently £12570) so taxable=0 → no tax.
+     *  - Step B: Withdraw further so that the taxable portion (after PA) fills, but does not exceed,
+     *            the Basic Rate Band (20%). Never touch the Higher Rate (40%).
+     *  - Any net surplus (beyond this year's spending need) is moved to savings.
+     *  - If pension net is insufficient to cover spending, top up from savings.
+     *
+     *  e.g. Using 2025 tax rates, you can draw down up to ~£67,026 gross in a year under UFPLS before hitting the higher-rate band.
+     *  The maximum taxable income before hitting 40% is: £12,570 + £37,700 = £50,270
+     *  For each £1 drawn down: 25p is tax-free 75p is taxable income
+     *  You can draw down up to ~£67,026 gross in a year before hitting the higher-rate band
      */
     public Wealth[] strategy4(BigDecimal savings, BigDecimal pension, BigDecimal requiredAmount, Map<Integer, BigDecimal> adhocWithdrawals) {
         validateParams(savings, pension, requiredAmount);
@@ -875,6 +885,7 @@ private void saveHtmlToFile(String htmlContent) {
             BigDecimal savingsStart = savings.setScale(2, RoundingMode.HALF_UP);
             BigDecimal taxPaidThisYear = BigDecimal.ZERO;
 
+            // SP (State Pension) from age 67
             BigDecimal statePensionIncome = age >= 67 ? STATE_PENSION : BigDecimal.ZERO;
 
             // Ad hoc extra spending for this age
@@ -883,69 +894,85 @@ private void saveHtmlToFile(String htmlContent) {
                 throw new IllegalArgumentException("Ad hoc withdrawal for age " + age + " must be >= 0");
             }
 
-            // Net spending need after state pension
+            // Net spending need after SP
             BigDecimal need = requiredAmount.add(extraThisYear).subtract(statePensionIncome);
             if (need.signum() < 0) need = BigDecimal.ZERO;
 
-            // Remaining personal allowance after state pension
+            // --- Compute 20% headroom so we never hit 40% ---
+            // Allowance left (0% band) after SP
             BigDecimal allowanceLeft = PERSONAL_ALLOWANCE.subtract(statePensionIncome);
             if (allowanceLeft.signum() < 0) allowanceLeft = BigDecimal.ZERO;
 
+            // Taxable income already using up the basic-rate band (20%) from SP (only the portion above PA)
+            BigDecimal taxableFromSP = statePensionIncome.subtract(PERSONAL_ALLOWANCE);
+            if (taxableFromSP.signum() < 0) taxableFromSP = BigDecimal.ZERO;
+
+            // Basic-rate band (20%) remaining after SP
+            BigDecimal basicBandLeft = BASIC_RATE_BAND.subtract(taxableFromSP);
+            if (basicBandLeft.signum() < 0) basicBandLeft = BigDecimal.ZERO;
+
+            // Total taxable headroom that will NOT enter higher rate:
+            //   taxableHeadroom = allowanceLeft (0%) + basicBandLeft (20%)
+            // Since UFPLS has 75% taxable, the gross UFPLS limit is:
+            //   grossHeadroom = taxableHeadroom / 0.75
+            BigDecimal taxableHeadroom = allowanceLeft.add(basicBandLeft, MATH_CONTEXT);
+            BigDecimal grossHeadroom = taxableHeadroom.divide(TAXED_PORTION, MATH_CONTEXT);
+
             BigDecimal netFromPensionTotal = BigDecimal.ZERO;
+            BigDecimal grossTakenThisYear = BigDecimal.ZERO;
 
-            // Step A: Zero-tax UFPLS withdrawal within remaining allowance
+            // -------- Step A: Use remaining PA via UFPLS with zero tax --------
             if (pension.signum() > 0 && allowanceLeft.signum() > 0) {
-                BigDecimal grossCapWithinAllowance = allowanceLeft.divide(TAXED_PORTION, MATH_CONTEXT);
-                BigDecimal grossZero = grossCapWithinAllowance.min(pension).setScale(2, RoundingMode.HALF_UP);
+                // To keep the UFPLS taxable 75% within allowanceLeft → gross cap = allowanceLeft / 0.75
+                BigDecimal grossA_cap = allowanceLeft.divide(TAXED_PORTION, MATH_CONTEXT);
+                // Also respect total headroom and available pension
+                BigDecimal grossA = grossA_cap.min(grossHeadroom.subtract(grossTakenThisYear, MATH_CONTEXT).max(BigDecimal.ZERO))
+                        .min(pension).setScale(2, RoundingMode.HALF_UP);
 
-                if (grossZero.signum() > 0) {
-                    // No tax within allowance
-                    BigDecimal taxableZero = grossZero.multiply(TAXED_PORTION, MATH_CONTEXT);
-                    BigDecimal netZero = grossZero; // zero tax
-                    pension = pension.subtract(grossZero);
+                if (grossA.signum() > 0) {
+                    BigDecimal taxableA = grossA.multiply(TAXED_PORTION, MATH_CONTEXT); // all within allowance → no tax
+                    BigDecimal netA = grossA;
 
-                    // Consume allowance by the taxable portion
-                    BigDecimal consumed = taxableZero.min(allowanceLeft);
+                    pension = pension.subtract(grossA);
+                    netFromPensionTotal = netFromPensionTotal.add(netA);
+                    grossTakenThisYear = grossTakenThisYear.add(grossA);
+
+                    // consume allowance by the taxable portion
+                    BigDecimal consumed = taxableA.min(allowanceLeft);
                     allowanceLeft = allowanceLeft.subtract(consumed);
                     if (allowanceLeft.signum() < 0) allowanceLeft = BigDecimal.ZERO;
-
-                    netFromPensionTotal = netFromPensionTotal.add(netZero);
                 }
             }
 
-            // Step B: Withdraw more to fill the basic-rate band (taxed at 20% above any remaining allowance)
+            // -------- Step B: Fill basic-rate band but do not cross into 40% --------
             if (pension.signum() > 0) {
-                // Portion of basic-rate band already used by state pension (above allowance)
-                BigDecimal taxableFromStatePension = statePensionIncome.subtract(PERSONAL_ALLOWANCE);
-                if (taxableFromStatePension.signum() < 0) taxableFromStatePension = BigDecimal.ZERO;
+                // basicBandLeft still reflects SP's impact; allowanceLeft was updated by Step A.
+                // Remaining taxable headroom after Step A:
+                BigDecimal taxableHeadroomRemaining = allowanceLeft.add(basicBandLeft, MATH_CONTEXT);
+                BigDecimal grossCapRemaining = taxableHeadroomRemaining.divide(TAXED_PORTION, MATH_CONTEXT);
 
-                BigDecimal remainingBasicBand = BASIC_RATE_BAND.subtract(taxableFromStatePension);
-                if (remainingBasicBand.signum() < 0) remainingBasicBand = BigDecimal.ZERO;
+                // Also cap by total headroom minus what we already took in Step A
+                grossCapRemaining = grossCapRemaining.min(grossHeadroom.subtract(grossTakenThisYear, MATH_CONTEXT).max(BigDecimal.ZERO));
 
-                if (remainingBasicBand.signum() > 0) {
-                    // Solve for gross so that taxable above remaining allowance equals remainingBasicBand:
-                    // max(0, 0.75*G - allowanceLeft) = remainingBasicBand -> G = (remainingBasicBand + allowanceLeft) / 0.75
-                    BigDecimal grossFillTarget = remainingBasicBand.add(allowanceLeft, MATH_CONTEXT).divide(TAXED_PORTION, MATH_CONTEXT);
-                    BigDecimal grossFill = grossFillTarget.min(pension).setScale(2, RoundingMode.HALF_UP);
+                BigDecimal grossB = grossCapRemaining.min(pension).setScale(2, RoundingMode.HALF_UP);
 
-                    if (grossFill.signum() > 0) {
-                        BigDecimal taxablePortion = grossFill.multiply(TAXED_PORTION, MATH_CONTEXT);
-                        BigDecimal zeroTaxOnTaxable = taxablePortion.min(allowanceLeft);
-                        BigDecimal taxedAboveAllowance = taxablePortion.subtract(zeroTaxOnTaxable);
-                        if (taxedAboveAllowance.signum() < 0) taxedAboveAllowance = BigDecimal.ZERO;
+                if (grossB.signum() > 0) {
+                    BigDecimal taxableB = grossB.multiply(TAXED_PORTION, MATH_CONTEXT);
+                    BigDecimal zeroTaxOnTaxable = taxableB.min(allowanceLeft);
+                    BigDecimal taxedAtBasic = taxableB.subtract(zeroTaxOnTaxable);
+                    if (taxedAtBasic.signum() < 0) taxedAtBasic = BigDecimal.ZERO;
 
-                        BigDecimal tax = taxedAboveAllowance.multiply(BASIC_RATE, MATH_CONTEXT).setScale(2, RoundingMode.HALF_UP);
-                        taxPaidThisYear = taxPaidThisYear.add(tax);
-                        BigDecimal netFill = grossFill.subtract(tax);
+                    BigDecimal taxB = taxedAtBasic.multiply(BASIC_RATE, MATH_CONTEXT).setScale(2, RoundingMode.HALF_UP);
+                    BigDecimal netB = grossB.subtract(taxB);
 
-                        pension = pension.subtract(grossFill);
+                    pension = pension.subtract(grossB);
+                    netFromPensionTotal = netFromPensionTotal.add(netB);
+                    grossTakenThisYear = grossTakenThisYear.add(grossB);
+                    taxPaidThisYear = taxPaidThisYear.add(taxB);
 
-                        // Update allowance
-                        allowanceLeft = allowanceLeft.subtract(zeroTaxOnTaxable);
-                        if (allowanceLeft.signum() < 0) allowanceLeft = BigDecimal.ZERO;
-
-                        netFromPensionTotal = netFromPensionTotal.add(netFill);
-                    }
+                    // Update allowance after Step B zero-tax portion
+                    allowanceLeft = allowanceLeft.subtract(zeroTaxOnTaxable);
+                    if (allowanceLeft.signum() < 0) allowanceLeft = BigDecimal.ZERO;
                 }
             }
 
@@ -967,16 +994,19 @@ private void saveHtmlToFile(String htmlContent) {
                 if (need.signum() < 0) need = BigDecimal.ZERO;
             }
 
-            // Apply end-of-year pension growth
+            // End-of-year pension growth (real terms, above inflation)
             pension = pension.multiply(BigDecimal.ONE.add(PENSION_GROWTH_RATE, MATH_CONTEXT), MATH_CONTEXT);
 
             BigDecimal pensionEnd = pension.setScale(2, RoundingMode.HALF_UP);
             BigDecimal savingsEnd = savings.setScale(2, RoundingMode.HALF_UP);
-            timeline[idx] = new Wealth(age, pensionStart, pensionEnd, savingsStart, savingsEnd, taxPaidThisYear.setScale(2, RoundingMode.HALF_UP), extraThisYear.setScale(2, RoundingMode.HALF_UP));
+            timeline[idx] = new Wealth(age, pensionStart, pensionEnd, savingsStart, savingsEnd,
+                    taxPaidThisYear.setScale(2, RoundingMode.HALF_UP),
+                    extraThisYear.setScale(2, RoundingMode.HALF_UP));
         }
 
         return timeline;
     }
+
 
     /**
      * Strategy 5: Withdraw required amount from pensions 25% tax free 75% taxed.  Don't touch savings.
