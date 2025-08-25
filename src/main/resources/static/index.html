@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Pension Strategy Comparison (Browser)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="app-container">
+    <header>
+        <h1>Pension Strategy Comparison</h1>
+        <p>Run the model entirely in your browser. Enter your parameters and generate a comparison report.</p>
+    </header>
+
+    <section class="card">
+        <h2>Inputs</h2>
+        <form id="inputs-form">
+            <div class="grid-2">
+                <div class="form-group">
+                    <label for="initialSavings">Initial Savings (£)</label>
+                    <input id="initialSavings" type="text" inputmode="decimal" placeholder="74000.00" />
+                </div>
+                <div class="form-group">
+                    <label for="initialPension">Initial Pension (£)</label>
+                    <input id="initialPension" type="text" inputmode="decimal" placeholder="425000.00" />
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="form-group">
+                    <label for="spendingAmounts">Example Annual Spending Amounts (£, comma separated)</label>
+                    <input id="spendingAmounts" type="text" placeholder="20000.00, 23000.00, 26000.00" />
+                </div>
+                <div class="form-group">
+                    <label for="targetAges">Target Ages (comma separated, optional)</label>
+                    <input id="targetAges" type="text" placeholder="67, 75, 99" />
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="adhocWithdrawals">Ad hoc withdrawals (optional: "age:amount; age:amount")</label>
+                <input id="adhocWithdrawals" type="text" placeholder="62:5000; 70:10000" />
+                <small>Example: 62:5000; 70:10000 adds extra net spending in those ages.</small>
+            </div>
+
+            <details class="advanced">
+                <summary>Advanced Parameters</summary>
+                <div class="grid-3">
+                    <div class="form-group">
+                        <label for="startAge">Start Age</label>
+                        <input id="startAge" type="number" value="61" />
+                    </div>
+                    <div class="form-group">
+                        <label for="endAge">End Age</label>
+                        <input id="endAge" type="number" value="99" />
+                    </div>
+                    <div class="form-group">
+                        <label for="pensionGrowthRate">Pension Growth Rate (decimal)</label>
+                        <input id="pensionGrowthRate" type="text" inputmode="decimal" value="0.04" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="personalAllowance">Personal Allowance (£)</label>
+                        <input id="personalAllowance" type="text" inputmode="decimal" value="12570.00" />
+                    </div>
+                    <div class="form-group">
+                        <label for="statePension">State Pension (£/yr)</label>
+                        <input id="statePension" type="text" inputmode="decimal" value="11973.00" />
+                    </div>
+                    <div class="form-group">
+                        <label for="basicRate">Basic Rate (decimal)</label>
+                        <input id="basicRate" type="text" inputmode="decimal" value="0.20" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="basicRateBand">Basic Rate Band Width (£)</label>
+                        <input id="basicRateBand" type="text" inputmode="decimal" value="37700.00" />
+                    </div>
+                    <div class="form-group">
+                        <label for="noIncomeContributionLimit">No-income Contribution Limit (£ gross)</label>
+                        <input id="noIncomeContributionLimit" type="text" inputmode="decimal" value="3600.00" />
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <input id="useStrategy3AContribution" type="checkbox" checked />
+                        <label for="useStrategy3AContribution">Enable Strategy 3A annual contribution (<= age 75)</label>
+                    </div>
+                </div>
+            </details>
+
+            <div class="actions">
+                <button type="button" id="generateBtn" class="btn primary">Generate Report</button>
+                <button type="button" id="downloadBtn" class="btn">Download HTML</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="card">
+        <h2>Report</h2>
+        <div id="report"></div>
+    </section>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
